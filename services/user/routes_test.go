@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"database/sql"
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -78,7 +77,7 @@ func TestUserServiceHandlers(t *testing.T) {
 }
 
 func (m *mockUserStore) GetUserByEmail(email string) (*types.User, error) {
-	return nil, fmt.Errorf("user not found")
+	return nil, sql.ErrNoRows
 }
 
 // CreateUser implements types.UserStore.
