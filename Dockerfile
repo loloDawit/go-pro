@@ -1,26 +1,41 @@
 # syntax=docker/dockerfile:1
 
 # Build the application from source
-FROM golang:1.21.0 AS build-stage
-  WORKDIR /app
+FROM golang:1.21.0-alpine AS build-stage
+WORKDIR /app
 
-  COPY go.mod go.sum ./
-  RUN go mod download
+# Install any build tools needed
+RUN apk add --no-cache gcc musl-dev
 
-  COPY . .
+# Copy go mod and sum files
+COPY go.mod go.sum ./
+RUN go mod download
 
-  RUN CGO_ENABLED=0 GOOS=linux go build -o /api ./cmd/main.go
+# Copy the source code and configuration files
+COPY . .
+COPY ./config ./config
 
-  # Run the tests in the container
+# Build the application
+RUN CGO_ENABLED=0 GOOS=linux go build -o /api ./cmd/main.go
+
+# Run the tests in the container
 FROM build-stage AS run-test-stage
-  RUN go test -v ./...
+RUN go test -v ./...
 
 # Deploy the application binary into a lean image
 FROM scratch AS build-release-stage
-  WORKDIR /
+WORKDIR /app
 
-  COPY --from=build-stage /api /api
+# Copy the built binary and configuration files from the previous stage
+COPY --from=build-stage /api /api
+COPY --from=build-stage /app/config ./config
+COPY --from=build-stage /app/.env .env
 
-  EXPOSE 8080
+# Expose the necessary port
+EXPOSE 8080
 
-  ENTRYPOINT ["/api"]
+# Health check to ensure the container is healthy
+HEALTHCHECK --interval=30s --timeout=5s --retries=3 CMD curl --fail http://localhost:8080/health || exit 1
+
+# Run the application
+ENTRYPOINT ["/api"]
