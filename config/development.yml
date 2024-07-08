@@ -1,0 +1,6 @@
+environment: local
+address: ":8080"
+
+jwt:
+  expiration: 60  # 1 minute in seconds
+
