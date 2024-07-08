@@ -84,7 +84,10 @@ func (h *Handler) checkout(w http.ResponseWriter, r *http.Request) {
 		totalPrice += float64(product.Price) * float64(item.Quantity)
 
 		// update the product quantity
-		err = h.productStore.UpdateProductQuantityWithTransaction(*product)
+		err = h.productStore.UpdateProductQuantityWithTransaction(types.Product{
+			ID:       product.ID,
+			Quantity: item.Quantity,
+		})
 		if err != nil {
 			utils.WriteError(w, http.StatusInternalServerError, err.Error())
 			return
