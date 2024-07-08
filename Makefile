@@ -7,9 +7,8 @@ GOBIN=./bin
 BINARY_NAME=ecom
 
 # Docker parameters
+DOCKER_COMPOSE=docker-compose
 DOCKER_IMAGE=ecom-app
-DOCKER_BUILD_CMD=docker build -t $(DOCKER_IMAGE) .
-DOCKER_RUN_CMD=docker run --rm -it -p 8080:8080 --env-file $(ENV_FILE) $(DOCKER_IMAGE)
 
 # Environment-specific .env file
 ENV_FILE=.env
@@ -20,13 +19,13 @@ build:
 	$(GOBUILD) -o $(GOBIN)/$(BINARY_NAME) -v ./cmd
 
 docker-build:
-	$(DOCKER_BUILD_CMD)
+	$(DOCKER_COMPOSE) build
 
 test:
 	$(GOTEST) -v ./...
 
 docker-test:
-	docker run --rm -it --env-file $(ENV_FILE) $(DOCKER_IMAGE) $(GOTEST) -v ./...
+	$(DOCKER_COMPOSE) run --rm app $(GOTEST) -v ./...
 
 clean:
 	$(GOCLEAN)
@@ -40,8 +39,7 @@ run:
 	$(GOBIN)/$(BINARY_NAME)
 
 docker-run:
-	docker run --rm -it -p 8080:8080 --env-file $(ENV_FILE) -v $(PWD)/$(ENV_FILE):/app/$(ENV_FILE) $(DOCKER_IMAGE)
-
+	$(DOCKER_COMPOSE) up --build
 
 migrate-up:
 	@$(GOCMD) run cmd/migrate/main.go up
