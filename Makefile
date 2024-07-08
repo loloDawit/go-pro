@@ -40,7 +40,8 @@ run:
 	$(GOBIN)/$(BINARY_NAME)
 
 docker-run:
-	$(DOCKER_RUN_CMD)
+	docker run --rm -it -p 8080:8080 --env-file $(ENV_FILE) -v $(PWD)/$(ENV_FILE):/app/$(ENV_FILE) $(DOCKER_IMAGE)
+
 
 migrate-up:
 	@$(GOCMD) run cmd/migrate/main.go up
