@@ -16,12 +16,19 @@ import (
 )
 
 type Handler struct {
-	store types.UserStore
-	cfg   *config.Config
+	store            types.UserStore
+	cfg              *config.Config
+	comparePasswords func(string, string) error
+	generateToken    func([]byte, int, time.Duration) (string, error)
 }
 
 func NewHandlers(store types.UserStore, cfg *config.Config) *Handler {
-	return &Handler{store: store, cfg: cfg}
+	return &Handler{
+		store:            store,
+		cfg:              cfg,
+		comparePasswords: auth.ComparePasswords,
+		generateToken:    auth.GenerateToken,
+	}
 }
 
 func (h *Handler) RegisterRoutes(r *mux.Router) {
@@ -114,14 +121,14 @@ func (h *Handler) login(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// compare the password
-	if err := auth.ComparePasswords(user.Password, payload.Password); err != nil {
+	if err := h.comparePasswords(user.Password, payload.Password); err != nil {
 		utils.WriteError(w, http.StatusUnauthorized, utils.ErrUnauthorized)
 		return
 	}
 
 	// generate a token
 	expiration := time.Second * time.Duration(h.cfg.JWT.Expiration)
-	token, err := auth.GenerateToken([]byte(h.cfg.JWT.Secret), user.ID, expiration)
+	token, err := h.generateToken([]byte(h.cfg.JWT.Secret), user.ID, expiration)
 	if err != nil {
 		utils.WriteError(w, http.StatusInternalServerError, utils.ErrInternalServerError)
 		return
