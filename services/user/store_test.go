@@ -2,6 +2,7 @@ package user
 
 import (
 	"database/sql"
+	"fmt"
 	"testing"
 
 	"github.com/DATA-DOG/go-sqlmock"
@@ -20,31 +21,64 @@ func TestGetUserByEmail(t *testing.T) {
 	cfg := &config.Config{}
 	store := NewUserStore(db, cfg)
 
-	t.Run("User found", func(t *testing.T) {
-		rows := sqlmock.NewRows([]string{"id", "firstName", "lastName", "email", "password"}).
-			AddRow(1, "John", "Doe", "john.doe@example.com", "hashedpassword")
-		mock.ExpectQuery("SELECT id, firstName, lastName, email, password FROM users WHERE email = \\$1").
-			WithArgs("john.doe@example.com").
-			WillReturnRows(rows)
+	tests := []struct {
+		name           string
+		email          string
+		mockQuery      func()
+		expectedUser   *types.User
+		expectedErr    error
+	}{
+		{
+			name:  "User found",
+			email: "john.doe@example.com",
+			mockQuery: func() {
+				rows := sqlmock.NewRows([]string{"id", "firstName", "lastName", "email", "password"}).
+					AddRow(1, "John", "Doe", "john.doe@example.com", "hashedpassword")
+				mock.ExpectQuery("SELECT id, firstName, lastName, email, password FROM users WHERE email = \\$1").
+					WithArgs("john.doe@example.com").
+					WillReturnRows(rows)
+			},
+			expectedUser: &types.User{
+				ID:        1,
+				FirstName: "John",
+				LastName:  "Doe",
+				Email:     "john.doe@example.com",
+				Password:  "hashedpassword",
+			},
+			expectedErr: nil,
+		},
+		{
+			name:  "User not found",
+			email: "john.doe@example.com",
+			mockQuery: func() {
+				mock.ExpectQuery("SELECT id, firstName, lastName, email, password FROM users WHERE email = \\$1").
+					WithArgs("john.doe@example.com").
+					WillReturnError(sql.ErrNoRows)
+			},
+			expectedUser: nil,
+			expectedErr:  sql.ErrNoRows,
+		},
+		{
+			name:  "Database error",
+			email: "john.doe@example.com",
+			mockQuery: func() {
+				mock.ExpectQuery("SELECT id, firstName, lastName, email, password FROM users WHERE email = \\$1").
+					WithArgs("john.doe@example.com").
+					WillReturnError(sql.ErrConnDone)
+			},
+			expectedUser: nil,
+			expectedErr:  sql.ErrConnDone,
+		},
+	}
 
-		user, err := store.GetUserByEmail("john.doe@example.com")
-		assert.NoError(t, err)
-		assert.NotNil(t, user)
-		assert.Equal(t, "John", user.FirstName)
-		assert.Equal(t, "Doe", user.LastName)
-		assert.Equal(t, "john.doe@example.com", user.Email)
-	})
-
-	t.Run("User not found", func(t *testing.T) {
-		mock.ExpectQuery("SELECT id, firstName, lastName, email, password FROM users WHERE email = \\$1").
-			WithArgs("john.doe@example.com").
-			WillReturnError(sql.ErrNoRows)
-
-		user, err := store.GetUserByEmail("john.doe@example.com")
-		assert.Error(t, err)
-		assert.Nil(t, user)
-		assert.Equal(t, sql.ErrNoRows, err)
-	})
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tt.mockQuery()
+			user, err := store.GetUserByEmail(tt.email)
+			assert.Equal(t, tt.expectedErr, err)
+			assert.Equal(t, tt.expectedUser, user)
+		})
+	}
 }
 
 func TestCreateUser(t *testing.T) {
@@ -57,17 +91,51 @@ func TestCreateUser(t *testing.T) {
 	cfg := &config.Config{}
 	store := NewUserStore(db, cfg)
 
-	mock.ExpectExec("INSERT INTO users \\(firstName, lastName, email, password\\) VALUES \\(\\$1, \\$2, \\$3, \\$4\\)").
-		WithArgs("John", "Doe", "john.doe@example.com", "hashedpassword").
-		WillReturnResult(sqlmock.NewResult(1, 1))
+	tests := []struct {
+		name        string
+		user        types.User
+		mockExec    func()
+		expectedErr error
+	}{
+		{
+			name: "Successful creation",
+			user: types.User{
+				FirstName: "John",
+				LastName:  "Doe",
+				Email:     "john.doe@example.com",
+				Password:  "hashedpassword",
+			},
+			mockExec: func() {
+				mock.ExpectExec("INSERT INTO users \\(firstName, lastName, email, password\\) VALUES \\(\\$1, \\$2, \\$3, \\$4\\)").
+					WithArgs("John", "Doe", "john.doe@example.com", "hashedpassword").
+					WillReturnResult(sqlmock.NewResult(1, 1))
+			},
+			expectedErr: nil,
+		},
+		{
+			name: "Database error",
+			user: types.User{
+				FirstName: "John",
+				LastName:  "Doe",
+				Email:     "john.doe@example.com",
+				Password:  "hashedpassword",
+			},
+			mockExec: func() {
+				mock.ExpectExec("INSERT INTO users \\(firstName, lastName, email, password\\) VALUES \\(\\$1, \\$2, \\$3, \\$4\\)").
+					WithArgs("John", "Doe", "john.doe@example.com", "hashedpassword").
+					WillReturnError(sql.ErrConnDone)
+			},
+			expectedErr: sql.ErrConnDone,
+		},
+	}
 
-	err = store.CreateUser(types.User{
-		FirstName: "John",
-		LastName:  "Doe",
-		Email:     "john.doe@example.com",
-		Password:  "hashedpassword",
-	})
-	assert.NoError(t, err)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tt.mockExec()
+			err := store.CreateUser(tt.user)
+			assert.Equal(t, tt.expectedErr, err)
+		})
+	}
 }
 
 func TestGetUserByID(t *testing.T) {
@@ -80,29 +148,62 @@ func TestGetUserByID(t *testing.T) {
 	cfg := &config.Config{}
 	store := NewUserStore(db, cfg)
 
-	t.Run("User found", func(t *testing.T) {
-		rows := sqlmock.NewRows([]string{"id", "firstName", "lastName", "email", "password"}).
-			AddRow(1, "John", "Doe", "john.doe@example.com", "hashedpassword")
-		mock.ExpectQuery("SELECT id, firstName, lastName, email, password FROM users WHERE id = \\$1").
-			WithArgs(1).
-			WillReturnRows(rows)
+	tests := []struct {
+		name           string
+		id             int
+		mockQuery      func()
+		expectedUser   *types.User
+		expectedErr    error
+	}{
+		{
+			name: "User found",
+			id:   1,
+			mockQuery: func() {
+				rows := sqlmock.NewRows([]string{"id", "firstName", "lastName", "email", "password"}).
+					AddRow(1, "John", "Doe", "john.doe@example.com", "hashedpassword")
+				mock.ExpectQuery("SELECT id, firstName, lastName, email, password FROM users WHERE id = \\$1").
+					WithArgs(1).
+					WillReturnRows(rows)
+			},
+			expectedUser: &types.User{
+				ID:        1,
+				FirstName: "John",
+				LastName:  "Doe",
+				Email:     "john.doe@example.com",
+				Password:  "hashedpassword",
+			},
+			expectedErr: nil,
+		},
+		{
+			name: "User not found",
+			id:   1,
+			mockQuery: func() {
+				mock.ExpectQuery("SELECT id, firstName, lastName, email, password FROM users WHERE id = \\$1").
+					WithArgs(1).
+					WillReturnError(sql.ErrNoRows)
+			},
+			expectedUser: nil,
+			expectedErr:  fmt.Errorf("user not found"),
+		},
+		{
+			name: "Database error",
+			id:   1,
+			mockQuery: func() {
+				mock.ExpectQuery("SELECT id, firstName, lastName, email, password FROM users WHERE id = \\$1").
+					WithArgs(1).
+					WillReturnError(sql.ErrConnDone)
+			},
+			expectedUser: nil,
+			expectedErr:  sql.ErrConnDone,
+		},
+	}
 
-		user, err := store.GetUserByID(1)
-		assert.NoError(t, err)
-		assert.NotNil(t, user)
-		assert.Equal(t, "John", user.FirstName)
-		assert.Equal(t, "Doe", user.LastName)
-		assert.Equal(t, "john.doe@example.com", user.Email)
-	})
-
-	t.Run("User not found", func(t *testing.T) {
-		mock.ExpectQuery("SELECT id, firstName, lastName, email, password FROM users WHERE id = \\$1").
-			WithArgs(1).
-			WillReturnError(sql.ErrNoRows)
-
-		user, err := store.GetUserByID(1)
-		assert.Error(t, err)
-		assert.Nil(t, user)
-		assert.Equal(t, "user not found", err.Error())
-	})
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tt.mockQuery()
+			user, err := store.GetUserByID(tt.id)
+			assert.Equal(t, tt.expectedErr, err)
+			assert.Equal(t, tt.expectedUser, user)
+		})
+	}
 }
