@@ -1,11 +1,14 @@
 package auth
 
 import (
+	"net/http"
+	"net/http/httptest"
 	"strconv"
 	"testing"
 	"time"
 
 	"github.com/golang-jwt/jwt"
+	"github.com/loloDawit/ecom/types"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -61,6 +64,85 @@ func TestGenerateToken(t *testing.T) {
 				} else {
 					t.Errorf("Token is invalid or claims are not as expected")
 				}
+			}
+		})
+	}
+}
+
+func generateToken(secret []byte, userID string) (string, error) {
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+		"userID": userID,
+	})
+	return token.SignedString(secret)
+}
+
+func TestJWTMiddleware(t *testing.T) {
+	secret := []byte("my_secret_key")
+
+	tests := []struct {
+		name              string
+		authHeader        string
+		expectedStatus    int
+		expectedResponse  string
+		expectUserIDInCtx bool
+	}{
+		{
+			name:              "Missing Authorization header",
+			authHeader:        "",
+			expectedStatus:    http.StatusUnauthorized,
+			expectedResponse:  `{"error":"Authorization header is missing"}`,
+			expectUserIDInCtx: false,
+		},
+		{
+			name:              "Missing token",
+			authHeader:        "Bearer ",
+			expectedStatus:    http.StatusUnauthorized,
+			expectedResponse:  `{"error":"Token is missing"}`,
+			expectUserIDInCtx: false,
+		},
+		{
+			name:              "Invalid token",
+			authHeader:        "Bearer invalid_token",
+			expectedStatus:    http.StatusUnauthorized,
+			expectedResponse:  `{"error":"Invalid token"}`,
+			expectUserIDInCtx: false,
+		},
+		{
+			name: "Valid token",
+			authHeader: func() string {
+				token, _ := generateToken(secret, "12345")
+				return "Bearer " + token
+			}(),
+			expectedStatus:    http.StatusOK,
+			expectedResponse:  "",
+			expectUserIDInCtx: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			handler := JWTMiddleware(secret)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				userID := r.Context().Value(types.UserIDKey)
+				if tt.expectUserIDInCtx {
+					assert.Equal(t, "12345", userID)
+				} else {
+					assert.Nil(t, userID)
+				}
+				w.WriteHeader(http.StatusOK)
+			}))
+
+			req, err := http.NewRequest("GET", "/", nil)
+			assert.NoError(t, err)
+			if tt.authHeader != "" {
+				req.Header.Set("Authorization", tt.authHeader)
+			}
+
+			rr := httptest.NewRecorder()
+			handler.ServeHTTP(rr, req)
+
+			assert.Equal(t, tt.expectedStatus, rr.Code)
+			if tt.expectedResponse != "" {
+				assert.JSONEq(t, tt.expectedResponse, rr.Body.String())
 			}
 		})
 	}
