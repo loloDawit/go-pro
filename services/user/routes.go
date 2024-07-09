@@ -85,7 +85,7 @@ func (h *Handler) signUp(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	utils.WriteJSON(w, http.StatusCreated, map[string]string{"message": "User created successfully"})
+	utils.WriteJSON(w, http.StatusCreated, map[string]string{"message": utils.UserCreatedSuccessfully})
 }
 
 func (h *Handler) login(w http.ResponseWriter, r *http.Request) {
