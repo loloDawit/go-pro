@@ -16,7 +16,7 @@ ENV_FILE=.env
 all: test build
 
 build:
-	$(GOBUILD) -o $(GOBIN)/$(BINARY_NAME) -v ./cmd
+	$(GOBUILD) -o $(GOBIN)/$(BINARY_NAME) -v ./cmd/server
 
 docker-build:
 	$(DOCKER_COMPOSE) build
@@ -35,7 +35,7 @@ docker-clean:
 	docker rmi $(DOCKER_IMAGE)
 
 run:
-	$(GOBUILD) -o $(GOBIN)/$(BINARY_NAME) -v ./cmd
+	$(GOBUILD) -o $(GOBIN)/$(BINARY_NAME) -v ./cmd/server
 	$(GOBIN)/$(BINARY_NAME)
 
 docker-run:

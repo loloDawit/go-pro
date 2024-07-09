@@ -16,7 +16,7 @@ COPY . .
 COPY ./config ./config
 
 # Build the application
-RUN CGO_ENABLED=0 GOOS=linux go build -o /api ./cmd/main.go
+RUN CGO_ENABLED=0 GOOS=linux go build -o /api ./cmd/server/main.go
 
 # Run the tests in the container
 FROM build-stage AS run-test-stage
