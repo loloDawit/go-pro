@@ -113,14 +113,14 @@ func TestSignUp(t *testing.T) {
 
 	tests := []struct {
 		name             string
-		payload          types.SignupUserPayload
+		payload          *types.SignupUserPayload
 		mockStore        *mockUserStore
 		expectedStatus   int
 		expectedResponse map[string]string
 	}{
 		{
 			name: "Valid signup",
-			payload: types.SignupUserPayload{
+			payload: &types.SignupUserPayload{
 				FirstName: "John",
 				LastName:  "Doe",
 				Email:     "john.doe@example.com",
@@ -135,11 +135,11 @@ func TestSignUp(t *testing.T) {
 				},
 			},
 			expectedStatus:   http.StatusCreated,
-			expectedResponse: map[string]string{"message": "User created successfully"},
+			expectedResponse: map[string]string{"message": utils.UserCreatedSuccessfully},
 		},
 		{
 			name: "User already exists",
-			payload: types.SignupUserPayload{
+			payload: &types.SignupUserPayload{
 				FirstName: "John",
 				LastName:  "Doe",
 				Email:     "john.doe@example.com",
@@ -151,11 +151,11 @@ func TestSignUp(t *testing.T) {
 				},
 			},
 			expectedStatus:   http.StatusBadRequest,
-			expectedResponse: map[string]string{"error": "user with this email already exists"},
+			expectedResponse: map[string]string{"error": utils.ErrUserAlreadyExists},
 		},
 		{
 			name: "Invalid payload",
-			payload: types.SignupUserPayload{
+			payload: &types.SignupUserPayload{
 				FirstName: "",
 				LastName:  "",
 				Email:     "invalid-email",
@@ -167,12 +167,28 @@ func TestSignUp(t *testing.T) {
 				"error": fmt.Sprintf("%s: %v", utils.ErrInvalidPayload, validator.ValidationErrors{}),
 			},
 		},
+		{
+			name: "Empty payload",
+			payload: nil,
+			mockStore: &mockUserStore{},
+			expectedStatus: http.StatusBadRequest,
+			expectedResponse: map[string]string{
+				"error" : utils.ErrInvalidRequestBody,
+			},
+		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			payloadBytes, _ := json.Marshal(tc.payload)
-			req, err := http.NewRequest(http.MethodPost, "/signup", bytes.NewBuffer(payloadBytes))
+			var req *http.Request
+			var err error
+			if tc.payload == nil {
+				req, err = http.NewRequest(http.MethodPost, "/login", nil)
+			} else {
+				payloadBytes, _ := json.Marshal(tc.payload)
+				req, err = http.NewRequest(http.MethodPost, "/login", bytes.NewBuffer(payloadBytes))
+			}
+			
 			if err != nil {
 				t.Fatalf("could not create request: %v", err)
 			}
@@ -214,6 +230,9 @@ func mockGenerateToken(secret []byte, userID int, expiration time.Duration) (str
 	return "mocked-token", nil
 }
 
+func mockGenerateTokenError(secret []byte, userID int, expiration time.Duration) (string, error) {
+	return "", fmt.Errorf("token generation error")
+}
 
 func TestLogin(t *testing.T) {
 	originalValidate := utils.Validate
@@ -229,14 +248,15 @@ func TestLogin(t *testing.T) {
 
 	tests := []struct {
 		name             string
-		payload          types.LoginUserPayload
+		payload          *types.LoginUserPayload
 		mockStore        *mockUserStore
+		generateToken    func([]byte, int, time.Duration) (string, error)
 		expectedStatus   int
 		expectedResponse map[string]string
 	}{
 		{
 			name: "Valid login",
-			payload: types.LoginUserPayload{
+			payload: &types.LoginUserPayload{
 				Email:    "john.doe@example.com",
 				Password: "password",
 			},
@@ -248,12 +268,13 @@ func TestLogin(t *testing.T) {
 					},
 				}
 			}(),
+			generateToken:    mockGenerateToken,
 			expectedStatus:   http.StatusOK,
 			expectedResponse: map[string]string{"token": "mocked-token"},
 		},
 		{
 			name: "User not found",
-			payload: types.LoginUserPayload{
+			payload: &types.LoginUserPayload{
 				Email:    "john.doe@example.com",
 				Password: "password",
 			},
@@ -262,24 +283,36 @@ func TestLogin(t *testing.T) {
 					return nil, sql.ErrNoRows
 				},
 			},
+			generateToken:    mockGenerateToken,
 			expectedStatus:   http.StatusNotFound,
 			expectedResponse: map[string]string{"error": utils.ErrUserNotFound},
 		},
 		{
 			name: "Invalid payload",
-			payload: types.LoginUserPayload{
+			payload: &types.LoginUserPayload{
 				Email:    "invalid-email",
 				Password: "password",
 			},
+			generateToken:    mockGenerateToken,
 			mockStore:      &mockUserStore{},
 			expectedStatus: http.StatusBadRequest,
 			expectedResponse: map[string]string{
 				"error": fmt.Sprintf("%s: %v", utils.ErrInvalidPayload, validator.ValidationErrors{}),
 			},
 		},
+		{ 
+			name: "Empty payload",
+			payload: nil,
+			mockStore: &mockUserStore{},
+			generateToken:    mockGenerateToken,
+			expectedStatus: http.StatusBadRequest,
+			expectedResponse: map[string]string{
+				"error" : "please send a valid request body",
+			},
+		},
 		{
 			name: "Invalid password",
-			payload: types.LoginUserPayload{
+			payload: &types.LoginUserPayload{
 				Email:    "john.doe@example.com",
 				Password: "wrong-password",
 			},
@@ -291,15 +324,56 @@ func TestLogin(t *testing.T) {
 					},
 				}
 			}(),
+			generateToken:    mockGenerateToken,
 			expectedStatus:   http.StatusUnauthorized,
 			expectedResponse: map[string]string{"error": utils.ErrUnauthorized},
+		},
+		{
+			name: "Internal server error - get user by email",
+			payload: &types.LoginUserPayload{
+				Email:    "john.doe@example.com",
+				Password: "password",
+			},
+			mockStore: &mockUserStore{
+				GetUserByEmailFunc: func(email string) (*types.User, error) {
+					return nil, fmt.Errorf("some internal error")
+				},
+			},
+			generateToken:    mockGenerateToken,
+			expectedStatus:   http.StatusInternalServerError,
+			expectedResponse: map[string]string{"error": utils.ErrInternalServerError},
+		},
+		{
+			name: "Internal server error - generate token",
+			payload: &types.LoginUserPayload{
+				Email:    "john.doe@example.com",
+				Password: "password",
+			},
+			mockStore: func() *mockUserStore {
+				hashedPassword, _ := auth.HashPassword("password")
+				return &mockUserStore{
+					GetUserByEmailFunc: func(email string) (*types.User, error) {
+						return &types.User{ID: 1, Password: hashedPassword}, nil
+					},
+				}
+			}(),
+			generateToken:    mockGenerateTokenError,
+			expectedStatus:   http.StatusInternalServerError,
+			expectedResponse: map[string]string{"error": utils.ErrInternalServerError},
 		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			payloadBytes, _ := json.Marshal(tc.payload)
-			req, err := http.NewRequest(http.MethodPost, "/login", bytes.NewBuffer(payloadBytes))
+			var req *http.Request
+			var err error
+			if tc.payload == nil {
+				req, err = http.NewRequest(http.MethodPost, "/login", nil)
+			} else {
+				payloadBytes, _ := json.Marshal(tc.payload)
+				req, err = http.NewRequest(http.MethodPost, "/login", bytes.NewBuffer(payloadBytes))
+			}
+
 			if err != nil {
 				t.Fatalf("could not create request: %v", err)
 			}
@@ -308,7 +382,7 @@ func TestLogin(t *testing.T) {
 				store:            tc.mockStore,
 				cfg:              mockCfg,
 				comparePasswords: auth.ComparePasswords,
-				generateToken:    mockGenerateToken, // Correctly inject mockGenerateToken
+				generateToken:    tc.generateToken,
 			}
 			handler.login(rr, req)
 
@@ -333,4 +407,46 @@ func TestLogin(t *testing.T) {
 			}
 		})
 	}
+
+	// Separate test for invalid JSON payload
+	// the other approach would be to convert the payload from a pointer to bytes
+	// *types.LoginUserPayload -> []byte
+	t.Run("Invalid JSON payload", func(t *testing.T) {
+		invalidJSON := []byte(`{"email": "john.doe@example.com", "password":`)
+		req, err := http.NewRequest(http.MethodPost, "/login", bytes.NewBuffer(invalidJSON))
+		if err != nil {
+			t.Fatalf("could not create request: %v", err)
+		}
+		rr := httptest.NewRecorder()
+		handler := &Handler{
+			store:            &mockUserStore{},
+			cfg:              mockCfg,
+			comparePasswords: auth.ComparePasswords,
+			generateToken:    mockGenerateToken,
+		}
+		handler.login(rr, req)
+
+		expectedStatus := http.StatusBadRequest
+		expectedResponse := map[string]string{"error": utils.ErrInvalidPayload}
+
+		if status := rr.Code; status != expectedStatus {
+			t.Errorf("handler returned wrong status code: got %v want %v", status, expectedStatus)
+		}
+
+		var responseBody map[string]string
+		err = json.Unmarshal(rr.Body.Bytes(), &responseBody)
+		if err != nil {
+			t.Fatalf("could not unmarshal response body: %v", err)
+		}
+
+		if len(responseBody) != len(expectedResponse) {
+			t.Errorf("handler returned unexpected body: got %v want %v", responseBody, expectedResponse)
+		}
+
+		for key, value := range expectedResponse {
+			if responseBody[key] != value {
+				t.Errorf("handler returned unexpected body: got %v want %v", responseBody, expectedResponse)
+			}
+		}
+	})
 }
