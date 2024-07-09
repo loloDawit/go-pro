@@ -10,4 +10,7 @@ const (
 	ErrInternalServerError = "internal server error"
 	ErrUnauthorized        = "unauthorized"
 	ErrCreatingProduct     = "error creating product"
+
+	// success messages
+	UserCreatedSuccessfully    = "user created successfully"
 )
