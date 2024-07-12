@@ -1,4 +1,4 @@
-name: Build and Push Docker image to ECR
+name: Build, Push Docker image to ECR, and Deploy to ECS
 
 on:
   push:
@@ -50,15 +50,60 @@ jobs:
         run: |
           docker tag ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:${{ env.IMAGE_TAG }} ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:latest
 
-    #   - name: Push Docker image with SHA tag
-    #     run: |
-    #       docker push ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:${{ env.IMAGE_TAG }}
+      - name: Push Docker image with SHA tag
+        run: |
+          docker push ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:${{ env.IMAGE_TAG }}
 
       - name: Push Docker image with latest tag
         run: |
           docker push ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:latest
 
-      - name: Verify pushed images
+      - name: Get Image Digest
+        id: image_digest
         run: |
-          echo "Verifying pushed Docker images"
-          docker images ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }} --format "{{.Tag}}: {{.ID}}"
+          IMAGE_DIGEST=$(aws ecr describe-images --repository-name ${{ env.ECR_REPOSITORY }} --query 'imageDetails[?imageTags[?contains(@, `latest`)]].imageDigest' --output text)
+          echo "::set-output name=digest::$IMAGE_DIGEST"
+
+      - name: Register New Task Definition
+        run: |
+          TASK_DEFINITION=$(cat <<EOF
+          {
+            "family": "go-pro-app-task",
+            "networkMode": "awsvpc",
+            "requiresCompatibilities": ["FARGATE"],
+            "cpu": "256",
+            "memory": "512",
+            "executionRoleArn": "${{ secrets.EXECUTION_ROLE_ARN }}",
+            "containerDefinitions": [
+              {
+                "name": "go_pro_app",
+                "image": "$ECR_REGISTRY/$ECR_REPOSITORY@${{ steps.image_digest.outputs.digest }}",
+                "essential": true,
+                "portMappings": [
+                  {
+                    "containerPort": 8080,
+                    "hostPort": 8080
+                  }
+                ],
+                "logConfiguration": {
+                  "logDriver": "awslogs",
+                  "options": {
+                    "awslogs-group": "/ecs/go_pro_app",
+                    "awslogs-region": "${{ secrets.AWS_REGION }}",
+                    "awslogs-stream-prefix": "ecs"
+                  }
+                }
+              }
+            ]
+          }
+          EOF
+          )
+
+          echo "$TASK_DEFINITION" > new_task_definition.json
+
+          aws ecs register-task-definition --cli-input-json file://new_task_definition.json
+
+      - name: Update ECS Service
+        run: |
+          NEW_TASK_DEFINITION_ARN=$(aws ecs describe-task-definition --task-definition go-pro-app-task --query 'taskDefinition.taskDefinitionArn' --output text)
+          aws ecs update-service --cluster go-pro-app-cluster --service go-pro-app-service --task-definition $NEW_TASK_DEFINITION_ARN
