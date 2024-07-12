@@ -50,11 +50,15 @@ jobs:
 
       - name: Push Docker image with SHA tag
         run: |
+          echo "Pushing Docker image with tag: ${{ env.IMAGE_TAG }}"
           docker push ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:${{ env.IMAGE_TAG }}
 
       - name: Push Docker image with latest tag
         run: |
+          echo "Pushing Docker image with tag: latest"
           docker push ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:latest
 
-      - name: Image digest
-        run: echo ${{ steps.build-image.outputs.digest }}
+      - name: Verify pushed images
+        run: |
+          echo "Verifying pushed Docker images"
+          docker images ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }} --format "{{.Tag}}: {{.ID}}"
