@@ -46,10 +46,22 @@ func (s *APIServer) Start() error {
 	cartHandler := cart.NewHandlers(orderStore, product.NewProductStore(s.db, s.cfg), s.cfg)
 	cartHandler.RegisterRoutes(subrouter)
 
+	// add health check endpoint
+	router.HandleFunc("/health", s.healthCheckHandler).Methods("GET")
+
 	// add log for server listening
 	log.Printf("Server is listening on %s", s.addr)
 
 	return http.ListenAndServe(s.addr, router)
+}
+
+func (s *APIServer) healthCheckHandler(w http.ResponseWriter, r *http.Request) {
+	if err := s.db.Ping(); err != nil {
+		http.Error(w, "Database not connected", http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("OK"))
 }
 
 func main() {
@@ -60,15 +72,24 @@ func main() {
 	}
 	log.Println("Current working directory:", cwd)
 
-	// Check if .env file exists
-	if _, err := os.Stat(".env"); os.IsNotExist(err) {
-		log.Fatalf(".env file does not exist")
+	// // Check if .env file exists
+	// if _, err := os.Stat(".env"); os.IsNotExist(err) {
+	// 	log.Fatalf(".env file does not exist")
+	// }
+	// Optionally load .env file if it exists for local development
+	if _, err := os.Stat(".env"); err == nil {
+		if err := godotenv.Load(); err != nil {
+			log.Fatalf("Error loading .env file: %v", err)
+		}
+		log.Println(".env file loaded for local development")
+	} else {
+		log.Println(".env file does not exist, skipping loading")
 	}
 
-	// Load .env file
-	if err := godotenv.Load(); err != nil {
-		log.Fatalf("Error loading .env file")
-	}
+	// // Load .env file
+	// if err := godotenv.Load(); err != nil {
+	// 	log.Fatalf("Error loading .env file")
+	// }
 
 	// Ensure CONFIG_DIRECTORY is set
 	if os.Getenv("CONFIG_DIRECTORY") == "" {
