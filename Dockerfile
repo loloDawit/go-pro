@@ -29,7 +29,7 @@ WORKDIR /app
 # Copy the built binary and configuration files from the previous stage
 COPY --from=build-stage /api /api
 COPY --from=build-stage /app/config ./config
-COPY --from=build-stage /app/.env .env
+# COPY --from=build-stage /app/.env .env
 
 # Expose the necessary port
 EXPOSE 8080
