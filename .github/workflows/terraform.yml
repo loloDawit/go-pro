@@ -30,7 +30,7 @@ jobs:
   terraform-plan:
     name: 'Terraform Plan'
     runs-on: ubuntu-latest
-    if: github.event.inputs.action == 'plan' || github.event_name == 'push' || github.event_name == 'pull_request' || github.event.inputs.action == 'apply'
+    if: github.event.inputs.action == 'plan' || github.event_name == 'push' || github.event_name == 'pull_request'
 
     steps:
       - name: Checkout code
@@ -57,22 +57,12 @@ jobs:
         working-directory: infrastructure/terraform-ecs
 
       - name: Terraform Plan
-        id: plan
-        run: terraform plan -out=tfplan
+        run: terraform plan
         working-directory: infrastructure/terraform-ecs
-
-      - name: Upload tfplan and lock file
-        uses: actions/upload-artifact@v2
-        with:
-          name: tfplan
-          path: |
-            infrastructure/terraform-ecs/tfplan
-            infrastructure/terraform-ecs/.terraform.lock.hcl
 
   terraform-apply:
     name: 'Terraform Apply'
     runs-on: ubuntu-latest
-    needs: terraform-plan
     if: github.event.inputs.action == 'apply'
 
     steps:
@@ -91,23 +81,19 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
 
-      - name: Download tfplan and lock file
-        uses: actions/download-artifact@v2
-        with:
-          name: tfplan
-          path: infrastructure/terraform-ecs
-
       - name: Terraform Init
         run: terraform init
         working-directory: infrastructure/terraform-ecs
 
-      - name: Terraform Apply
-        run: terraform apply -auto-approve infrastructure/terraform-ecs/tfplan
+      - name: Terraform Plan and Apply
+        run: |
+          terraform plan -out=tfplan
+          terraform apply -auto-approve tfplan
+        working-directory: infrastructure/terraform-ecs
 
   terraform-destroy:
     name: 'Terraform Destroy'
     runs-on: ubuntu-latest
-    needs: terraform-plan
     if: github.event.inputs.action == 'destroy'
 
     steps:
@@ -126,8 +112,10 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
 
-      - name: Download tfplan and lock file
-        uses: actions/download-artifact@v2
-        with:
-          name: tfplan
-          path: infrastructure/terraform
+      - name: Terraform Init
+        run: terraform init
+        working-directory: infrastructure/terraform-ecs
+
+      - name: Terraform Destroy
+        run: terraform destroy -auto-approve
+        working-directory: infrastructure/terraform-ecs
