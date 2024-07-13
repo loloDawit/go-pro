@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"strconv"
 
 	"gopkg.in/yaml.v2"
 )
@@ -41,34 +40,6 @@ func DefaultJWTConfig() JWTConfig {
 	}
 }
 
-// // Initialize configuration and construct the connection string once
-// var Envs *Config
-// var ConnStr string
-
-// func InitConfig() {
-// 	err := godotenv.Load()
-// 	if err != nil {
-// 		log.Fatal("Error loading .env file")
-// 	}
-
-// 	env := getEnv("ENV")
-// 	if env == "" {
-// 		env = "local"
-// 	}
-
-// 	configDirectory := getEnv("CONFIG_DIRECTORY")
-
-// 	if configDirectory == "" {
-// 		configDirectory = "/config"
-// 	}
-
-// 	Envs, err = loadConfig(env, configDirectory)
-// 	if err != nil {
-// 		log.Fatalf("Error loading config: %v", err)
-// 	}
-
-// 	ConnStr = constructConnStr(Envs)
-// }
 
 const configFormat = "checkout-api-config-%s.yml"
 
@@ -123,20 +94,4 @@ func getEnv(key string) string {
 		return value
 	}
 	return ""
-}
-
-func constructConnStr(config *Config) string {
-	return fmt.Sprintf("postgres://%s:%s@%s/%s?sslmode=require", config.DBuser, config.DBpassword, config.DBaddr, config.DBname)
-}
-
-func getEnvAsInt(key string) int64 {
-	if value, ok := os.LookupEnv(key); ok {
-		i, err := strconv.ParseInt(value, 10, 64)
-		if err != nil {
-			log.Fatalf("Error parsing %s: %v", key, err)
-		}
-
-		return i
-	}
-	return 0
 }
