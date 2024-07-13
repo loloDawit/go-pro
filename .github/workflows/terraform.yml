@@ -39,7 +39,7 @@ jobs:
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v1
         with:
-          terraform_version: 1.1.7
+          terraform_version: 1.4.6
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v1
@@ -49,7 +49,11 @@ jobs:
           aws-region: us-east-1
 
       - name: Terraform Init
-        run: terraform init
+        run: terraform init -backend-config="workspace_key_prefix=ci"
+        working-directory: infrastructure/terraform-ecs
+
+      - name: Select Workspace
+        run: terraform workspace select ci || terraform workspace new ci
         working-directory: infrastructure/terraform-ecs
 
       - name: Terraform Validate
@@ -82,7 +86,7 @@ jobs:
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v1
         with:
-          terraform_version: 1.1.7
+          terraform_version: 1.4.6
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v1
@@ -98,7 +102,11 @@ jobs:
           path: infrastructure/terraform-ecs
 
       - name: Terraform Init
-        run: terraform init
+        run: terraform init -backend-config="workspace_key_prefix=ci"
+        working-directory: infrastructure/terraform-ecs
+
+      - name: Select Workspace
+        run: terraform workspace select ci
         working-directory: infrastructure/terraform-ecs
 
       - name: Terraform Apply
@@ -107,6 +115,7 @@ jobs:
   terraform-destroy:
     name: 'Terraform Destroy'
     runs-on: ubuntu-latest
+    needs: terraform-plan
     if: github.event.inputs.action == 'destroy'
 
     steps:
@@ -116,7 +125,7 @@ jobs:
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v1
         with:
-          terraform_version: 1.1.7
+          terraform_version: 1.4.6
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v1
@@ -125,8 +134,18 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
 
+      - name: Download tfplan and lock file
+        uses: actions/download-artifact@v2
+        with:
+          name: tfplan
+          path: infrastructure/terraform-ecs
+
       - name: Terraform Init
-        run: terraform init
+        run: terraform init -backend-config="workspace_key_prefix=ci"
+        working-directory: infrastructure/terraform-ecs
+
+      - name: Select Workspace
+        run: terraform workspace select ci
         working-directory: infrastructure/terraform-ecs
 
       - name: Terraform Destroy
