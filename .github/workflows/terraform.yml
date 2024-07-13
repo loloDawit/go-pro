@@ -99,7 +99,7 @@ jobs:
 
       - name: Terraform Init
         run: |
-          cp infrastructure/terraform-ecs/.terraform.lock.hcl .terraform.lock.hcl
+          cp infrastructure/terraform-ecs/.terraform.lock.hcl infrastructure/terraform-ecs/.terraform.lock.hcl
           terraform init
         working-directory: infrastructure/terraform-ecs
 
@@ -136,7 +136,7 @@ jobs:
 
       - name: Terraform Init
         run: |
-          cp infrastructure/terraform-ecs/.terraform.lock.hcl .terraform.lock.hcl
+          cp infrastructure/terraform-ecs/.terraform.lock.hcl infrastructure/terraform-ecs/.terraform.lock.hcl
           terraform init
         working-directory: infrastructure/terraform-ecs
 
