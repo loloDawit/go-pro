@@ -2,7 +2,7 @@ name: Build, Push Docker image to ECR, and Deploy to ECS
 
 on:
   workflow_run:
-    workflows: ["Go"]
+    workflows: ["Go CI"]
     types:
       - completed
 
@@ -19,16 +19,16 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
       - name: Set up QEMU
-        uses: docker/setup-qemu-action@v2
+        uses: docker/setup-qemu-action@v3
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v2
+        uses: docker/setup-buildx-action@v3
 
       - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v1
+        uses: aws-actions/configure-aws-credentials@v2
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -64,7 +64,7 @@ jobs:
         id: image_digest
         run: |
           IMAGE_DIGEST=$(aws ecr describe-images --repository-name ${{ env.ECR_REPOSITORY }} --query 'imageDetails[?imageTags[?contains(@, `latest`)]].imageDigest' --output text)
-          echo "::set-output name=digest::$IMAGE_DIGEST"
+          echo "digest=$IMAGE_DIGEST" >> $GITHUB_ENV
 
       - name: Register New Task Definition
         run: |
@@ -79,7 +79,7 @@ jobs:
             "containerDefinitions": [
               {
                 "name": "go_pro_app",
-                "image": "$ECR_REGISTRY/$ECR_REPOSITORY@${{ steps.image_digest.outputs.digest }}",
+                "image": "$ECR_REGISTRY/$ECR_REPOSITORY@${{ env.digest }}",
                 "essential": true,
                 "portMappings": [
                   {
@@ -95,7 +95,7 @@ jobs:
                     "awslogs-stream-prefix": "ecs"
                   }
                 },
-                  "environment": [
+                "environment": [
                   {
                     "name": "DB_USER",
                     "value": "${{ secrets.DB_USER }}"
