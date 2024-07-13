@@ -98,9 +98,7 @@ jobs:
           path: infrastructure/terraform-ecs
 
       - name: Terraform Init
-        run: |
-          cp infrastructure/terraform-ecs/.terraform.lock.hcl infrastructure/terraform-ecs/.terraform.lock.hcl
-          terraform init
+        run: terraform init
         working-directory: infrastructure/terraform-ecs
 
       - name: Terraform Apply
@@ -132,14 +130,4 @@ jobs:
         uses: actions/download-artifact@v2
         with:
           name: tfplan
-          path: infrastructure/terraform-ecs
-
-      - name: Terraform Init
-        run: |
-          cp infrastructure/terraform-ecs/.terraform.lock.hcl infrastructure/terraform-ecs/.terraform.lock.hcl
-          terraform init
-        working-directory: infrastructure/terraform-ecs
-
-      - name: Terraform Destroy
-        run: terraform destroy -auto-approve
-        working-directory: infrastructure/terraform-ecs
+          path: infrastructure/terraform
