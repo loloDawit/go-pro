@@ -67,7 +67,6 @@ jobs:
           echo "digest=$IMAGE_DIGEST" >> $GITHUB_ENV
 
       - name: Register New Task Definition
-        id: register_task_definition
         run: |
           TASK_DEFINITION=$(cat <<EOF
           {
@@ -125,38 +124,10 @@ jobs:
           )
 
           echo "$TASK_DEFINITION" > new_task_definition.json
-          register_output=$(aws ecs register-task-definition --cli-input-json file://new_task_definition.json 2>&1) || register_status=$?
-          echo "register_output=$register_output" >> $GITHUB_ENV
-          if [ -z "$register_status" ]; then
-            echo "register_status=success" >> $GITHUB_ENV
-          else
-            echo "register_status=failure" >> $GITHUB_ENV
-            exit 1
-          fi
-        shell: bash
+
+          aws ecs register-task-definition --cli-input-json file://new_task_definition.json
 
       - name: Update ECS Service
-        if: ${{ env.register_status == 'success' }}
-        id: update_ecs
         run: |
           NEW_TASK_DEFINITION_ARN=$(aws ecs describe-task-definition --task-definition go-pro-app-task --query 'taskDefinition.taskDefinitionArn' --output text)
-          update_output=$(aws ecs update-service --cluster go-pro-app-cluster --service go-pro-app-service --task-definition $NEW_TASK_DEFINITION_ARN 2>&1) || update_status=$?
-          echo "update_output=$update_output" >> $GITHUB_ENV
-          if [ -z "$update_status" ]; then
-            echo "update_status=success" >> $GITHUB_ENV
-          else
-            echo "update_status=failure" >> $GITHUB_ENV
-            exit 1
-          fi
-        shell: bash
-
-      - name: Check ECS Service Update Status
-        if: ${{ env.update_status == 'success' }}
-        run: echo "ECS Service update was successful."
-
-      - name: Handle ECS Service Update Failure
-        if: ${{ env.update_status == 'failure' }}
-        run: |
-          echo "ECS Service update failed."
-          echo "Error output:"
-          echo "${{ env.update_output }}"
+          aws ecs update-service --cluster go-pro-app-cluster --service go-pro-app-service --task-definition $NEW_TASK_DEFINITION_ARN
