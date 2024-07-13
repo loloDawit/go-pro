@@ -30,7 +30,7 @@ jobs:
   terraform-plan:
     name: 'Terraform Plan'
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' || github.event_name == 'pull_request' || github.event.inputs.action == 'plan'
+    if: github.event.inputs.action == 'plan' || github.event_name == 'push' || github.event_name == 'pull_request' || github.event.inputs.action == 'apply'
 
     steps:
       - name: Checkout code
@@ -49,11 +49,7 @@ jobs:
           aws-region: us-east-1
 
       - name: Terraform Init
-        run: terraform init -backend-config="workspace_key_prefix=ci"
-        working-directory: infrastructure/terraform-ecs
-
-      - name: Select Workspace
-        run: terraform workspace select ci || terraform workspace new ci
+        run: terraform init
         working-directory: infrastructure/terraform-ecs
 
       - name: Terraform Validate
@@ -66,7 +62,6 @@ jobs:
         working-directory: infrastructure/terraform-ecs
 
       - name: Upload tfplan and lock file
-        if: github.event.inputs.action == 'plan' || github.event_name == 'workflow_dispatch'
         uses: actions/upload-artifact@v2
         with:
           name: tfplan
@@ -77,6 +72,7 @@ jobs:
   terraform-apply:
     name: 'Terraform Apply'
     runs-on: ubuntu-latest
+    needs: terraform-plan
     if: github.event.inputs.action == 'apply'
 
     steps:
@@ -102,11 +98,7 @@ jobs:
           path: infrastructure/terraform-ecs
 
       - name: Terraform Init
-        run: terraform init -backend-config="workspace_key_prefix=ci"
-        working-directory: infrastructure/terraform-ecs
-
-      - name: Select Workspace
-        run: terraform workspace select ci
+        run: terraform init
         working-directory: infrastructure/terraform-ecs
 
       - name: Terraform Apply
@@ -115,6 +107,7 @@ jobs:
   terraform-destroy:
     name: 'Terraform Destroy'
     runs-on: ubuntu-latest
+    needs: terraform-plan
     if: github.event.inputs.action == 'destroy'
 
     steps:
@@ -134,11 +127,7 @@ jobs:
           aws-region: us-east-1
 
       - name: Terraform Init
-        run: terraform init -backend-config="workspace_key_prefix=ci"
-        working-directory: infrastructure/terraform-ecs
-
-      - name: Select Workspace
-        run: terraform workspace select ci
+        run: terraform init
         working-directory: infrastructure/terraform-ecs
 
       - name: Terraform Destroy
