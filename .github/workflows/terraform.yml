@@ -50,16 +50,22 @@ jobs:
 
       - name: Terraform Init
         run: terraform init
-        working-directory: infrastructure/terraform-ecs
+        working-directory: infrastructure/ecs
 
       - name: Terraform Validate
         run: terraform validate
-        working-directory: infrastructure/terraform-ecs
+        working-directory: infrastructure/ecs
 
       - name: Terraform Plan
         id: plan
         run: terraform plan -out=tfplan
-        working-directory: infrastructure/terraform-ecs
+        working-directory: infrastructure/ecs
+
+      - name: Upload tfplan
+        uses: actions/upload-artifact@v2
+        with:
+          name: tfplan
+          path: infrastructure/ecs/tfplan
 
   terraform-apply:
     name: 'Terraform Apply'
@@ -82,13 +88,18 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
 
+      - name: Download tfplan
+        uses: actions/download-artifact@v2
+        with:
+          name: tfplan
+          path: infrastructure/ecs
+
       - name: Terraform Init
         run: terraform init
-        working-directory: infrastructure/terraform-ecs
+        working-directory: infrastructure/ecs
 
       - name: Terraform Apply
-        run: terraform apply -auto-approve tfplan
-        working-directory: infrastructure/terraform-ecs
+        run: terraform apply -auto-approve infrastructure/ecs/tfplan
 
   terraform-destroy:
     name: 'Terraform Destroy'
@@ -113,8 +124,8 @@ jobs:
 
       - name: Terraform Init
         run: terraform init
-        working-directory: infrastructure/terraform-ecs
+        working-directory: infrastructure/ecs
 
       - name: Terraform Destroy
         run: terraform destroy -auto-approve
-        working-directory: infrastructure/terraform-ecs
+        working-directory: infrastructure/ecs
