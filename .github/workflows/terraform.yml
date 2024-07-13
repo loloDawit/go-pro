@@ -61,11 +61,13 @@ jobs:
         run: terraform plan -out=tfplan
         working-directory: infrastructure/terraform-ecs
 
-      - name: Upload tfplan
+      - name: Upload tfplan and lock file
         uses: actions/upload-artifact@v2
         with:
           name: tfplan
-          path: infrastructure/terraform-ecs/tfplan
+          path: |
+            infrastructure/terraform-ecs/tfplan
+            infrastructure/terraform-ecs/.terraform.lock.hcl
 
   terraform-apply:
     name: 'Terraform Apply'
@@ -89,7 +91,7 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
 
-      - name: Download tfplan
+      - name: Download tfplan and lock file
         uses: actions/download-artifact@v2
         with:
           name: tfplan
