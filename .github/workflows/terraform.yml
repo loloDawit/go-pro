@@ -50,22 +50,22 @@ jobs:
 
       - name: Terraform Init
         run: terraform init
-        working-directory: infrastructure/ecs
+        working-directory: infrastructure/terraform-ecs
 
       - name: Terraform Validate
         run: terraform validate
-        working-directory: infrastructure/ecs
+        working-directory: infrastructure/terraform-ecs
 
       - name: Terraform Plan
         id: plan
         run: terraform plan -out=tfplan
-        working-directory: infrastructure/ecs
+        working-directory: infrastructure/terraform-ecs
 
       - name: Upload tfplan
         uses: actions/upload-artifact@v2
         with:
           name: tfplan
-          path: infrastructure/ecs/tfplan
+          path: infrastructure/terraform-ecs/tfplan
 
   terraform-apply:
     name: 'Terraform Apply'
@@ -92,14 +92,14 @@ jobs:
         uses: actions/download-artifact@v2
         with:
           name: tfplan
-          path: infrastructure/ecs
+          path: infrastructure/terraform-ecs
 
       - name: Terraform Init
         run: terraform init
-        working-directory: infrastructure/ecs
+        working-directory: infrastructure/terraform-ecs
 
       - name: Terraform Apply
-        run: terraform apply -auto-approve infrastructure/ecs/tfplan
+        run: terraform apply -auto-approve infrastructure/terraform-ecs/tfplan
 
   terraform-destroy:
     name: 'Terraform Destroy'
@@ -124,8 +124,8 @@ jobs:
 
       - name: Terraform Init
         run: terraform init
-        working-directory: infrastructure/ecs
+        working-directory: infrastructure/terraform-ecs
 
       - name: Terraform Destroy
         run: terraform destroy -auto-approve
-        working-directory: infrastructure/ecs
+        working-directory: infrastructure/terraform-ecs
