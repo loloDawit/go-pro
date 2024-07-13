@@ -98,7 +98,9 @@ jobs:
           path: infrastructure/terraform-ecs
 
       - name: Terraform Init
-        run: terraform init
+        run: |
+          cp infrastructure/terraform-ecs/.terraform.lock.hcl .terraform.lock.hcl
+          terraform init
         working-directory: infrastructure/terraform-ecs
 
       - name: Terraform Apply
@@ -133,7 +135,9 @@ jobs:
           path: infrastructure/terraform-ecs
 
       - name: Terraform Init
-        run: terraform init
+        run: |
+          cp infrastructure/terraform-ecs/.terraform.lock.hcl .terraform.lock.hcl
+          terraform init
         working-directory: infrastructure/terraform-ecs
 
       - name: Terraform Destroy
