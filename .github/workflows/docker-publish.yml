@@ -1,9 +1,10 @@
 name: Build, Push Docker image to ECR, and Deploy to ECS
 
 on:
-  push:
-    branches:
-      - main
+  workflow_run:
+    workflows: ["Go"]
+    types:
+      - completed
 
 env:
   AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
