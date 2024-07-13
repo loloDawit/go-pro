@@ -1,0 +1,45 @@
+name: Remove ECR Images
+
+on:
+  workflow_dispatch:
+    inputs:
+      repository-name:
+        description: 'ECR Repository Name'
+        required: true
+        type: string
+      region:
+        description: 'AWS Region'
+        required: true
+        type: string
+
+jobs:
+  remove-images:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Set up AWS CLI
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ github.event.inputs.region }}
+
+      - name: Run script to remove images from ECR
+        env:
+          REPOSITORY_NAME: ${{ github.event.inputs.repository-name }}
+          REGION: ${{ github.event.inputs.region }}
+        run: |
+          #!/bin/bash
+
+          # List all image IDs
+          IMAGE_IDS=$(aws ecr list-images --repository-name $REPOSITORY_NAME --region $REGION --query 'imageIds[*]' --output json)
+
+          # Delete all images
+          if [[ $IMAGE_IDS != "[]" ]]; then
+              aws ecr batch-delete-image --repository-name $REPOSITORY_NAME --region $REGION --image-ids "$IMAGE_IDS"
+          else
+              echo "Repository is already empty."
+          ```
