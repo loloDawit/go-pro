@@ -92,7 +92,29 @@ jobs:
                     "awslogs-region": "${{ secrets.AWS_REGION }}",
                     "awslogs-stream-prefix": "ecs"
                   }
-                }
+                },
+                  "environment": [
+                  {
+                    "name": "DB_USER",
+                    "value": "${{ secrets.DB_USER }}"
+                  },
+                  {
+                    "name": "DB_PASSWORD",
+                    "value": "${{ secrets.DB_PASSWORD }}"
+                  },
+                  {
+                    "name": "DB_HOSTNAME",
+                    "value": "${{ secrets.DB_HOSTNAME }}"
+                  },
+                  {
+                    "name": "DB_NAME",
+                    "value": "${{ secrets.DB_NAME }}"
+                  },
+                  {
+                    "name": "JWT_SECRET",
+                    "value": "${{ secrets.JWT_SECRET }}"
+                  }
+                ]
               }
             ]
           }
