@@ -126,6 +126,12 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
 
+      - name: Download tfplan and lock file
+        uses: actions/download-artifact@v2
+        with:
+          name: tfplan
+          path: infrastructure/terraform-ecs
+
       - name: Terraform Init
         run: terraform init
         working-directory: infrastructure/terraform-ecs
