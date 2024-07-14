@@ -112,8 +112,6 @@ func MockEmptyUserIDMiddleware(next http.Handler) http.Handler {
 	})
 }
 
-
-
 func TestCheckoutRoute(t *testing.T) {
 	cfg := &config.Config{
 		JWT: config.JWTConfig{
@@ -140,8 +138,8 @@ func TestCheckoutRoute(t *testing.T) {
 					return nil
 				},
 			},
-			mockProductStore: &mockProductStore{},
-			expectedStatus:   http.StatusBadRequest,
+			mockProductStore:     &mockProductStore{},
+			expectedStatus:       http.StatusBadRequest,
 			expectedResponseBody: `{"error":"invalid payload"}`,
 		},
 		{
@@ -155,8 +153,8 @@ func TestCheckoutRoute(t *testing.T) {
 					return nil
 				},
 			},
-			mockProductStore: &mockProductStore{},
-			expectedStatus:   http.StatusBadRequest,
+			mockProductStore:     &mockProductStore{},
+			expectedStatus:       http.StatusBadRequest,
 			expectedResponseBody: `{"error":"invalid payload: Key: 'CartCheckoutPayload.Items' Error:Field validation for 'Items' failed on the 'required' tag"}`,
 		},
 		{
@@ -172,8 +170,8 @@ func TestCheckoutRoute(t *testing.T) {
 					return nil
 				},
 			},
-			mockProductStore: &mockProductStore{},
-			expectedStatus:   http.StatusBadRequest,
+			mockProductStore:     &mockProductStore{},
+			expectedStatus:       http.StatusBadRequest,
 			expectedResponseBody: `{"error":"Cart is empty"}`,
 		},
 		{
@@ -196,7 +194,7 @@ func TestCheckoutRoute(t *testing.T) {
 					return nil, http.ErrNotSupported
 				},
 			},
-			expectedStatus:   http.StatusInternalServerError,
+			expectedStatus:       http.StatusInternalServerError,
 			expectedResponseBody: `{"error":"Product not found"}`,
 		},
 		{
@@ -224,7 +222,7 @@ func TestCheckoutRoute(t *testing.T) {
 					}, nil
 				},
 			},
-			expectedStatus:   http.StatusBadRequest,
+			expectedStatus:       http.StatusBadRequest,
 			expectedResponseBody: `{"error":"Product Test Product is out of stock"}`,
 		},
 		{
@@ -252,7 +250,7 @@ func TestCheckoutRoute(t *testing.T) {
 					}, nil
 				},
 			},
-			expectedStatus:   http.StatusBadRequest,
+			expectedStatus:       http.StatusBadRequest,
 			expectedResponseBody: `{"error":"Product Test Product has only 5 items left"}`,
 		},
 		{
@@ -283,7 +281,7 @@ func TestCheckoutRoute(t *testing.T) {
 					return http.ErrNotSupported
 				},
 			},
-			expectedStatus:   http.StatusInternalServerError,
+			expectedStatus:       http.StatusInternalServerError,
 			expectedResponseBody: `{"error":"Failed to update product quantity"}`,
 		},
 		{
@@ -314,7 +312,7 @@ func TestCheckoutRoute(t *testing.T) {
 					return nil
 				},
 			},
-			expectedStatus:   http.StatusInternalServerError,
+			expectedStatus:       http.StatusInternalServerError,
 			expectedResponseBody: `{"error":"Failed to create order"}`,
 		},
 		{
@@ -345,7 +343,7 @@ func TestCheckoutRoute(t *testing.T) {
 					return nil
 				},
 			},
-			expectedStatus:   http.StatusInternalServerError,
+			expectedStatus:       http.StatusInternalServerError,
 			expectedResponseBody: `{"error":"Failed to create order item"}`,
 		},
 		{
@@ -387,10 +385,9 @@ func TestCheckoutRoute(t *testing.T) {
 
 			// Create a router instance without middleware for this specific test case
 			var router *mux.Router
-			
+
 			router = mux.NewRouter()
 			router.Use(MockJWTMiddleware([]byte(cfg.JWT.Secret)))
-			
 
 			handler.RegisterRoutes(router)
 

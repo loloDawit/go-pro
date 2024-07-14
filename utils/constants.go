@@ -12,5 +12,5 @@ const (
 	ErrCreatingProduct     = "error creating product"
 
 	// success messages
-	UserCreatedSuccessfully    = "user created successfully"
+	UserCreatedSuccessfully = "user created successfully"
 )

@@ -87,7 +87,6 @@ func TestServerStart(t *testing.T) {
 	}
 }
 
-
 func TestMain(m *testing.M) {
 	// Run tests
 	code := m.Run()

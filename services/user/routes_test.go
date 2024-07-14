@@ -18,11 +18,10 @@ import (
 )
 
 type mockUserStore struct {
-	db *sql.DB
+	db                 *sql.DB
 	GetUserByEmailFunc func(email string) (*types.User, error)
 	CreateUserFunc     func(user types.User) error
 }
-
 
 func (m *mockUserStore) GetUserByEmail(email string) (*types.User, error) {
 	if m.GetUserByEmailFunc != nil {
@@ -38,11 +37,11 @@ func (m *mockUserStore) CreateUser(user types.User) error {
 	}
 	return nil
 }
+
 // GetUserByID implements types.UserStore.
 func (m *mockUserStore) GetUserByID(id int) (*types.User, error) {
 	return nil, nil
 }
-
 
 func TestCheckUserExists(t *testing.T) {
 	tests := []struct {
@@ -168,12 +167,12 @@ func TestSignUp(t *testing.T) {
 			},
 		},
 		{
-			name: "Empty payload",
-			payload: nil,
-			mockStore: &mockUserStore{},
+			name:           "Empty payload",
+			payload:        nil,
+			mockStore:      &mockUserStore{},
 			expectedStatus: http.StatusBadRequest,
 			expectedResponse: map[string]string{
-				"error" : utils.ErrInvalidRequestBody,
+				"error": utils.ErrInvalidRequestBody,
 			},
 		},
 	}
@@ -188,7 +187,7 @@ func TestSignUp(t *testing.T) {
 				payloadBytes, _ := json.Marshal(tc.payload)
 				req, err = http.NewRequest(http.MethodPost, "/login", bytes.NewBuffer(payloadBytes))
 			}
-			
+
 			if err != nil {
 				t.Fatalf("could not create request: %v", err)
 			}
@@ -293,21 +292,21 @@ func TestLogin(t *testing.T) {
 				Email:    "invalid-email",
 				Password: "password",
 			},
-			generateToken:    mockGenerateToken,
+			generateToken:  mockGenerateToken,
 			mockStore:      &mockUserStore{},
 			expectedStatus: http.StatusBadRequest,
 			expectedResponse: map[string]string{
 				"error": fmt.Sprintf("%s: %v", utils.ErrInvalidPayload, validator.ValidationErrors{}),
 			},
 		},
-		{ 
-			name: "Empty payload",
-			payload: nil,
-			mockStore: &mockUserStore{},
-			generateToken:    mockGenerateToken,
+		{
+			name:           "Empty payload",
+			payload:        nil,
+			mockStore:      &mockUserStore{},
+			generateToken:  mockGenerateToken,
 			expectedStatus: http.StatusBadRequest,
 			expectedResponse: map[string]string{
-				"error" : "please send a valid request body",
+				"error": "please send a valid request body",
 			},
 		},
 		{

@@ -36,7 +36,6 @@ func (h *Handler) getProducts(w http.ResponseWriter, r *http.Request) {
 	utils.WriteJSON(w, http.StatusOK, products)
 }
 
-
 func (h *Handler) getProduct(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	id, err := strconv.Atoi(vars["id"])
@@ -83,7 +82,6 @@ func (h *Handler) createProduct(w http.ResponseWriter, r *http.Request) {
 		Price:       payload.Price,
 		Quantity:    payload.Quantity,
 	})
-
 	if err != nil {
 		log.Printf("%s: %v", utils.ErrCreatingProduct, err)
 		utils.WriteError(w, http.StatusInternalServerError, utils.ErrInternalServerError)
@@ -96,5 +94,4 @@ func (h *Handler) createProduct(w http.ResponseWriter, r *http.Request) {
 	}
 
 	utils.WriteJSON(w, http.StatusCreated, response)
-
 }

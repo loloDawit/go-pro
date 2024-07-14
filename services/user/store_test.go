@@ -22,11 +22,11 @@ func TestGetUserByEmail(t *testing.T) {
 	store := NewUserStore(db, cfg)
 
 	tests := []struct {
-		name           string
-		email          string
-		mockQuery      func()
-		expectedUser   *types.User
-		expectedErr    error
+		name         string
+		email        string
+		mockQuery    func()
+		expectedUser *types.User
+		expectedErr  error
 	}{
 		{
 			name:  "User found",
@@ -149,11 +149,11 @@ func TestGetUserByID(t *testing.T) {
 	store := NewUserStore(db, cfg)
 
 	tests := []struct {
-		name           string
-		id             int
-		mockQuery      func()
-		expectedUser   *types.User
-		expectedErr    error
+		name         string
+		id           int
+		mockQuery    func()
+		expectedUser *types.User
+		expectedErr  error
 	}{
 		{
 			name: "User found",

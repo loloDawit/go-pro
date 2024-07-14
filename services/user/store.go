@@ -13,7 +13,6 @@ type UserStore struct {
 	cfg *config.Config
 }
 
-
 func NewUserStore(db *sql.DB, cfg *config.Config) *UserStore {
 	return &UserStore{db: db, cfg: cfg}
 }

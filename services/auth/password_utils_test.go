@@ -16,21 +16,21 @@ func TestHashPassword(t *testing.T) {
 		expectError bool
 	}{
 		{
-			name:     "Valid password",
-			password: "password123",
-			hashFunc: bcrypt.GenerateFromPassword,
+			name:        "Valid password",
+			password:    "password123",
+			hashFunc:    bcrypt.GenerateFromPassword,
 			expectError: false,
 		},
 		{
-			name:     "Empty password",
-			password: "",
-			hashFunc: bcrypt.GenerateFromPassword,
+			name:        "Empty password",
+			password:    "",
+			hashFunc:    bcrypt.GenerateFromPassword,
 			expectError: false,
 		},
 		{
-			name:     "Long password",
-			password: "aVeryLongPasswordWithMultipleCharactersAndSymbols123!@#",
-			hashFunc: bcrypt.GenerateFromPassword,
+			name:        "Long password",
+			password:    "aVeryLongPasswordWithMultipleCharactersAndSymbols123!@#",
+			hashFunc:    bcrypt.GenerateFromPassword,
 			expectError: false,
 		},
 		{

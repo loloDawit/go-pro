@@ -22,10 +22,10 @@ func TestGetProducts(t *testing.T) {
 	store := NewProductStore(db, cfg)
 
 	tests := []struct {
-		name         string
-		mockQuery    func()
+		name             string
+		mockQuery        func()
 		expectedProducts []types.Product
-		expectedErr  error
+		expectedErr      error
 	}{
 		{
 			name: "Products found",
@@ -81,11 +81,11 @@ func TestGetProductByID(t *testing.T) {
 	store := NewProductStore(db, cfg)
 
 	tests := []struct {
-		name         string
-		id           int
-		mockQuery    func()
+		name            string
+		id              int
+		mockQuery       func()
 		expectedProduct *types.Product
-		expectedErr  error
+		expectedErr     error
 	}{
 		{
 			name: "Product found",
@@ -98,7 +98,7 @@ func TestGetProductByID(t *testing.T) {
 					WillReturnRows(rows)
 			},
 			expectedProduct: &types.Product{ID: 1, Name: "Product 1", Description: "Description 1", Image: "image1.jpg", Price: 10.5, Quantity: 100},
-			expectedErr: nil,
+			expectedErr:     nil,
 		},
 		{
 			name: "Product not found",

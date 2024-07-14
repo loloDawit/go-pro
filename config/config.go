@@ -40,7 +40,6 @@ func DefaultJWTConfig() JWTConfig {
 	}
 }
 
-
 const configFormat = "checkout-api-config-%s.yml"
 
 // LoadConfig creates a new Config instance and populates it with the environment file found in the configuration directory.
