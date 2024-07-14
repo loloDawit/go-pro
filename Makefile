@@ -15,6 +15,28 @@ ENV_FILE=.env
 
 all: test build
 
+# Define variables
+GOFMT = gofmt
+FIND = find
+
+# Default target
+all: gofmtcheck
+
+# Gofmt check and fix target
+gofmtcheck:
+	@echo "Checking and fixing gofmt issues..."
+	@need_fmt=$$($(GOFMT) -l $$($(FIND) . -type f -name '*.go' -not -path './vendor/*')); \
+	if [ "$$need_fmt" = "" ]; then \
+		echo "All files are properly formatted!"; \
+	else \
+		echo "Files that need formatting and will be fixed:"; \
+		echo "$$need_fmt"; \
+		$(GOFMT) -w $$need_fmt; \
+		echo "All files have been formatted."; \
+	fi
+
+.PHONY: all gofmtcheck
+
 build:
 	$(GOBUILD) -o $(GOBIN)/$(BINARY_NAME) -v ./cmd/server
 
