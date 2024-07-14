@@ -172,6 +172,34 @@ address: :8080
 			expectedPanicMsg: "failed to unmarshal configuration file (checkout-api-config-test.yml): yaml: unmarshal errors:",
 			expectedConfig:   nil,
 		},
+		{
+			name:        "Error during unmarshalling of additional configuration file",
+			directory:   "./config",
+			environment: "test",
+			mockReadFileFunc: func(filename string) ([]byte, error) {
+				if filename == "./config/test.yml" {
+					validYAML := `
+environment: test
+db_user: test_user
+db_password: test_password
+db_addr: test_hostname
+db_name: test_db
+jwt:
+  expiration: 7200
+  secret: test_secret
+address: :8080
+`
+					return []byte(validYAML), nil
+				}
+				if filename == "./config/checkout-api-config-test.yml" {
+					invalidYAML := "invalid yaml content"
+					return []byte(invalidYAML), nil
+				}
+				return nil, fmt.Errorf("file not found: %s", filename)
+			},
+			expectedPanicMsg: "failed to unmarshal configuration file (checkout-api-config-test.yml): yaml: unmarshal errors:",
+			expectedConfig:   nil,
+		},
 	}
 
 	for _, tt := range tests {
