@@ -67,8 +67,9 @@ func TestNewSQLDatabase(t *testing.T) {
 				if tt.rowsScanError == nil {
 					rows.AddRow(tt.expectedOutput)
 				} else {
-					// Simulate rows.Scan error by returning an error in the scan call
-					mock.ExpectQuery("SELECT version()").WillReturnRows(rows.AddRow(tt.expectedOutput)).WillReturnError(tt.rowsScanError)
+					rows.AddRow("dummy_version")
+					// We cannot directly inject a scan error; instead, we simulate a query error that results in no rows being scanned.
+					mock.ExpectQuery("SELECT version()").WillReturnRows(rows).WillReturnError(tt.rowsScanError)
 				}
 				mock.ExpectQuery("SELECT version()").WillReturnRows(rows)
 			} else if tt.sqlOpenError == nil {
