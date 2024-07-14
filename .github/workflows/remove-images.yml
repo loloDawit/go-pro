@@ -42,3 +42,4 @@ jobs:
               aws ecr batch-delete-image --repository-name $REPOSITORY_NAME --region $REGION --image-ids "$IMAGE_IDS"
           else
               echo "Repository is already empty."
+          fi
