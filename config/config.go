@@ -40,7 +40,13 @@ func DefaultJWTConfig() JWTConfig {
 	}
 }
 
-const configFormat = "checkout-api-config-%s.yml"
+const configFormat = "go-pro-api-config-%s.yml"
+
+// Define variables for file reading and environment variable lookup functions
+var (
+	readFileFunc  = os.ReadFile
+	lookupEnvFunc = os.LookupEnv
+)
 
 // LoadConfig creates a new Config instance and populates it with the environment file found in the configuration directory.
 func LoadConfig(ctx context.Context, directory string, environment string, deployment string) *Config {
@@ -67,7 +73,7 @@ func LoadConfig(ctx context.Context, directory string, environment string, deplo
 
 	// Load YAML configuration based on the environment
 	fileName := fmt.Sprintf("%s/%s.yml", directory, environment)
-	yamlFile, err := os.ReadFile(fileName)
+	yamlFile, err := readFileFunc(fileName)
 	if err != nil {
 		panic(fmt.Errorf("could not read %s config file: %w", fileName, err))
 	}
@@ -79,7 +85,7 @@ func LoadConfig(ctx context.Context, directory string, environment string, deplo
 
 	// Load additional environment-specific config if it exists
 	secretConfig := fmt.Sprintf(configFormat, environment)
-	if data, err := os.ReadFile(directory + "/" + secretConfig); err == nil {
+	if data, err := readFileFunc(directory + "/" + secretConfig); err == nil {
 		if err := yaml.Unmarshal(data, cfg); err != nil {
 			panic(fmt.Errorf("failed to unmarshal configuration file (%s): %v", secretConfig, err))
 		}
@@ -89,7 +95,7 @@ func LoadConfig(ctx context.Context, directory string, environment string, deplo
 }
 
 func getEnv(key string) string {
-	if value, ok := os.LookupEnv(key); ok {
+	if value, ok := lookupEnvFunc(key); ok {
 		return value
 	}
 	return ""
