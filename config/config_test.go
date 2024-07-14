@@ -42,8 +42,17 @@ func TestLoadConfig(t *testing.T) {
 	})
 	defer restoreLookupEnv()
 
-	// Mock YAML file content
-	configYAML := `
+	// Test cases
+	tests := []struct {
+		name             string
+		mockReadFileFunc func(string) ([]byte, error)
+		expectedPanicMsg string
+		expectedConfig   *Config
+	}{
+		{
+			name: "Successful Load",
+			mockReadFileFunc: func(filename string) ([]byte, error) {
+				configYAML := `
 environment: test
 db_user: test_user
 db_password: test_password
@@ -54,32 +63,120 @@ jwt:
   secret: test_secret
 address: :8080
 `
-
-	// Mock readFileFunc function
-	mockReadFile(func(filename string) ([]byte, error) {
-		if filename == "./config/test.yml" {
-			return []byte(configYAML), nil
-		}
-		return nil, fmt.Errorf("file not found: %s", filename)
-	})
-	defer restoreReadFile()
-
-	// Test case
-	ctx := context.Background()
-	cfg := LoadConfig(ctx, "./config", "test", "deployment")
-
-	expectedConfig := &Config{
-		Environment: "test",
-		DBuser:      "test_user",
-		DBpassword:  "test_password",
-		DBaddr:      "test_hostname",
-		DBname:      "test_db",
-		JWT: JWTConfig{
-			Expiration: 7200,
-			Secret:     "test_secret",
+				return []byte(configYAML), nil
+			},
+			expectedPanicMsg: "",
+			expectedConfig: &Config{
+				Environment: "test",
+				DBuser:      "test_user",
+				DBpassword:  "test_password",
+				DBaddr:      "test_hostname",
+				DBname:      "test_db",
+				JWT: JWTConfig{
+					Expiration: 7200,
+					Secret:     "test_secret",
+				},
+				Address: ":8080",
+			},
 		},
-		Address: ":8080",
+		{
+			name: "Error Reading Main Config File",
+			mockReadFileFunc: func(filename string) ([]byte, error) {
+				return nil, fmt.Errorf("file not found: %s", filename)
+			},
+			expectedPanicMsg: "could not read ./config/test.yml config file: file not found: ./config/test.yml",
+			expectedConfig:   nil,
+		},
+		{
+			name: "Error Parsing Main Config File",
+			mockReadFileFunc: func(filename string) ([]byte, error) {
+				invalidYAML := "invalid yaml content"
+				return []byte(invalidYAML), nil
+			},
+			expectedPanicMsg: "could not parse ./config/test.yml config file: yaml: unmarshal errors:",
+			expectedConfig:   nil,
+		},
+		{
+			name: "Error Reading Additional Config File",
+			mockReadFileFunc: func(filename string) ([]byte, error) {
+				if filename == "./config/checkout-api-config-test.yml" {
+					return nil, fmt.Errorf("file not found: %s", filename)
+				}
+				validYAML := `
+environment: test
+db_user: test_user
+db_password: test_password
+db_addr: test_hostname
+db_name: test_db
+jwt:
+  expiration: 7200
+  secret: test_secret
+address: :8080
+`
+				return []byte(validYAML), nil
+			},
+			expectedPanicMsg: "",
+			expectedConfig: &Config{
+				Environment: "test",
+				DBuser:      "test_user",
+				DBpassword:  "test_password",
+				DBaddr:      "test_hostname",
+				DBname:      "test_db",
+				JWT: JWTConfig{
+					Expiration: 7200,
+					Secret:     "test_secret",
+				},
+				Address: ":8080",
+			},
+		},
+		{
+			name: "Error Parsing Additional Config File",
+			mockReadFileFunc: func(filename string) ([]byte, error) {
+				if filename == "./config/checkout-api-config-test.yml" {
+					invalidYAML := "invalid yaml content"
+					return []byte(invalidYAML), nil
+				}
+				validYAML := `
+environment: test
+db_user: test_user
+db_password: test_password
+db_addr: test_hostname
+db_name: test_db
+jwt:
+  expiration: 7200
+  secret: test_secret
+address: :8080
+`
+				return []byte(validYAML), nil
+			},
+			expectedPanicMsg: "failed to unmarshal configuration file (checkout-api-config-test.yml): yaml: unmarshal errors:",
+			expectedConfig:   nil,
+		},
 	}
 
-	assert.Equal(t, expectedConfig, cfg)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Mock readFileFunc function
+			mockReadFile(tt.mockReadFileFunc)
+			defer restoreReadFile()
+
+			if tt.expectedPanicMsg != "" {
+				// Test for panic
+				defer func() {
+					if r := recover(); r != nil {
+						assert.Contains(t, r.(error).Error(), tt.expectedPanicMsg)
+					}
+				}()
+			}
+
+			// Test case
+			ctx := context.Background()
+			cfg := LoadConfig(ctx, "./config", "test", "deployment")
+
+			// Check results
+			if tt.expectedConfig != nil {
+				assert.Equal(t, tt.expectedConfig, cfg)
+			}
+		})
+	}
 }
