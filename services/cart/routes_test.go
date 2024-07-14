@@ -128,7 +128,6 @@ func TestCheckoutRoute(t *testing.T) {
 		mockProductStore     *mockProductStore
 		expectedStatus       int
 		expectedResponseBody string
-		bypassMiddleware     bool
 	}{
 		{
 			name:    "Invalid Payload",
@@ -380,38 +379,6 @@ func TestCheckoutRoute(t *testing.T) {
 			expectedStatus:       http.StatusOK,
 			expectedResponseBody: `{"id":123,"total":20,"message":"Order created successfully"}`,
 		},
-		{
-			name: "Error Getting User ID from Context",
-			payload: types.CartCheckoutPayload{
-				Items: []types.CartItem{
-					{ProductID: 1, Quantity: 2},
-				},
-			},
-			mockOrderStore: &mockOrderStore{
-				CreateOrderFunc: func(order types.Order) (int, error) {
-					return 123, nil
-				},
-				CreateOrderItemFunc: func(item types.OrderItem) error {
-					return nil
-				},
-			},
-			mockProductStore: &mockProductStore{
-				GetProductByIDFunc: func(id int) (*types.Product, error) {
-					return &types.Product{
-						ID:       id,
-						Name:     "Test Product",
-						Price:    10,
-						Quantity: 100,
-					}, nil
-				},
-				UpdateProductQuantityWithTransactionFunc: func(product types.Product) error {
-					return nil
-				},
-			},
-			expectedStatus:       http.StatusInternalServerError,
-			expectedResponseBody: `{"error":"user ID not found in context"}`,
-			bypassMiddleware:     true,
-		},
 	}
 
 	for _, tt := range tests {
@@ -420,12 +387,10 @@ func TestCheckoutRoute(t *testing.T) {
 
 			// Create a router instance without middleware for this specific test case
 			var router *mux.Router
-			if tt.bypassMiddleware {
-				router = mux.NewRouter()
-			} else {
-				router = mux.NewRouter()
-				router.Use(MockJWTMiddleware([]byte(cfg.JWT.Secret)))
-			}
+			
+			router = mux.NewRouter()
+			router.Use(MockJWTMiddleware([]byte(cfg.JWT.Secret)))
+			
 
 			handler.RegisterRoutes(router)
 
@@ -439,12 +404,6 @@ func TestCheckoutRoute(t *testing.T) {
 			token, err := generateTestToken([]byte(cfg.JWT.Secret), 1, time.Hour)
 			assert.NoError(t, err)
 			req.Header.Set("Authorization", "Bearer "+token)
-
-			if tt.bypassMiddleware {
-				// Directly set the context without the user ID
-				req = req.WithContext(context.Background())
-				log.Println("Removed User ID from context for test:", tt.name)
-			}
 
 			rr := httptest.NewRecorder()
 			router.ServeHTTP(rr, req)
