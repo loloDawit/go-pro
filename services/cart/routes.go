@@ -29,7 +29,6 @@ func (h *Handler) RegisterRoutes(r *mux.Router) {
 }
 
 func (h *Handler) checkout(w http.ResponseWriter, r *http.Request) {
-	// get the user ID from the context
 	userID, err := getUserIDFromContext(r.Context())
 	if err != nil {
 		fmt.Println("Error getting user ID from context:", err)
@@ -42,14 +41,13 @@ func (h *Handler) checkout(w http.ResponseWriter, r *http.Request) {
 	var cartPayload types.CartCheckoutPayload
 	err = utils.ReadJSON(r, &cartPayload)
 	if err != nil {
-		utils.WriteError(w, http.StatusBadRequest, utils.ErrInvalidPayload)
+		utils.WriteError(w, http.StatusBadRequest, "invalid payload")
 		return
 	}
 
-	// validate the payload
 	if err := utils.Validate.Struct(cartPayload); err != nil {
 		validationErrors := err.(validator.ValidationErrors)
-		utils.WriteError(w, http.StatusBadRequest, fmt.Sprintf("%s: %v", utils.ErrInvalidPayload, validationErrors))
+		utils.WriteError(w, http.StatusBadRequest, fmt.Sprintf("invalid payload: %v", validationErrors))
 		return
 	}
 
@@ -58,38 +56,32 @@ func (h *Handler) checkout(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// get the product by id
-	// loop through the cart items and get the product by id
 	var totalPrice float64
 	for _, item := range cartPayload.Items {
 		product, err := h.productStore.GetProductByID(item.ProductID)
 		if err != nil {
-			utils.WriteError(w, http.StatusInternalServerError, err.Error())
+			utils.WriteError(w, http.StatusInternalServerError, "Product not found")
 			return
 		}
 
-		// check if the quantity is available
 		if product.Quantity <= 0 {
 			utils.WriteError(w, http.StatusBadRequest, fmt.Sprintf("Product %s is out of stock", product.Name))
 			return
 		}
 
-		// check if the quantity is not more than the available quantity
 		if item.Quantity > product.Quantity {
 			utils.WriteError(w, http.StatusBadRequest, fmt.Sprintf("Product %s has only %d items left", product.Name, product.Quantity))
 			return
 		}
 
-		// calculate the total price
 		totalPrice += float64(product.Price) * float64(item.Quantity)
 
-		// update the product quantity
 		err = h.productStore.UpdateProductQuantityWithTransaction(types.Product{
 			ID:       product.ID,
 			Quantity: item.Quantity,
 		})
 		if err != nil {
-			utils.WriteError(w, http.StatusInternalServerError, err.Error())
+			utils.WriteError(w, http.StatusInternalServerError, "Failed to update product quantity")
 			return
 		}
 	}
@@ -103,7 +95,7 @@ func (h *Handler) checkout(w http.ResponseWriter, r *http.Request) {
 	})
 
 	if err != nil {
-		utils.WriteError(w, http.StatusInternalServerError, err.Error())
+		utils.WriteError(w, http.StatusInternalServerError, "Failed to create order")
 		return
 	}
 
@@ -116,7 +108,7 @@ func (h *Handler) checkout(w http.ResponseWriter, r *http.Request) {
 			Price:     totalPrice,
 		})
 		if err != nil {
-			utils.WriteError(w, http.StatusInternalServerError, err.Error())
+			utils.WriteError(w, http.StatusInternalServerError, "Failed to create order item")
 			return
 		}
 	}
@@ -126,10 +118,8 @@ func (h *Handler) checkout(w http.ResponseWriter, r *http.Request) {
 		Total:   totalPrice,
 		Message: "Order created successfully",
 	})
-
 }
 
-// Helper function to retrieve user ID from context
 func getUserIDFromContext(ctx context.Context) (int, error) {
 	userIDStr, ok := ctx.Value(types.UserIDKey).(string)
 	if !ok {
