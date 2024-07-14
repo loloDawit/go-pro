@@ -1,8 +1,5 @@
 [![codecov](https://codecov.io/gh/loloDawit/go-pro/branch/main/graph/badge.svg)](https://codecov.io/gh/loloDawit/go-pro)
 
-Here's a more detailed project description that encapsulates all the work you've done:
-
----
 
 ## Project Description: Comprehensive Backend API Development and Deployment
 
