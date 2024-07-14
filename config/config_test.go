@@ -45,12 +45,16 @@ func TestLoadConfig(t *testing.T) {
 	// Test cases
 	tests := []struct {
 		name             string
+		directory        string
+		environment      string
 		mockReadFileFunc func(string) ([]byte, error)
 		expectedPanicMsg string
 		expectedConfig   *Config
 	}{
 		{
-			name: "Successful Load",
+			name:        "Successful Load",
+			directory:   "./config",
+			environment: "test",
 			mockReadFileFunc: func(filename string) ([]byte, error) {
 				configYAML := `
 environment: test
@@ -80,7 +84,17 @@ address: :8080
 			},
 		},
 		{
-			name: "Error Reading Main Config File",
+			name:             "Default Directory and Environment",
+			directory:        "",
+			environment:      "",
+			mockReadFileFunc: func(filename string) ([]byte, error) { return nil, fmt.Errorf("file not found: %s", filename) },
+			expectedPanicMsg: "could not read ./config/development.yml config file: file not found: ./config/development.yml",
+			expectedConfig:   nil,
+		},
+		{
+			name:        "Error Reading Main Config File",
+			directory:   "./config",
+			environment: "test",
 			mockReadFileFunc: func(filename string) ([]byte, error) {
 				return nil, fmt.Errorf("file not found: %s", filename)
 			},
@@ -88,7 +102,9 @@ address: :8080
 			expectedConfig:   nil,
 		},
 		{
-			name: "Error Parsing Main Config File",
+			name:        "Error Parsing Main Config File",
+			directory:   "./config",
+			environment: "test",
 			mockReadFileFunc: func(filename string) ([]byte, error) {
 				invalidYAML := "invalid yaml content"
 				return []byte(invalidYAML), nil
@@ -97,7 +113,9 @@ address: :8080
 			expectedConfig:   nil,
 		},
 		{
-			name: "Error Reading Additional Config File",
+			name:        "Error Reading Additional Config File",
+			directory:   "./config",
+			environment: "test",
 			mockReadFileFunc: func(filename string) ([]byte, error) {
 				if filename == "./config/checkout-api-config-test.yml" {
 					return nil, fmt.Errorf("file not found: %s", filename)
@@ -130,7 +148,9 @@ address: :8080
 			},
 		},
 		{
-			name: "Error Parsing Additional Config File",
+			name:        "Error Parsing Additional Config File",
+			directory:   "./config",
+			environment: "test",
 			mockReadFileFunc: func(filename string) ([]byte, error) {
 				if filename == "./config/checkout-api-config-test.yml" {
 					invalidYAML := "invalid yaml content"
@@ -171,12 +191,39 @@ address: :8080
 
 			// Test case
 			ctx := context.Background()
-			cfg := LoadConfig(ctx, "./config", "test", "deployment")
+			cfg := LoadConfig(ctx, tt.directory, tt.environment, "deployment")
 
 			// Check results
 			if tt.expectedConfig != nil {
 				assert.Equal(t, tt.expectedConfig, cfg)
 			}
+		})
+	}
+}
+
+func TestGetEnv(t *testing.T) {
+	mockLookupEnv(func(key string) (string, bool) {
+		envVars := map[string]string{
+			"DB_USER":     "test_user",
+			"DB_PASSWORD": "test_password",
+		}
+		val, ok := envVars[key]
+		return val, ok
+	})
+	defer restoreLookupEnv()
+
+	tests := []struct {
+		key      string
+		expected string
+	}{
+		{"DB_USER", "test_user"},
+		{"DB_PASSWORD", "test_password"},
+		{"DB_HOSTNAME", ""},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.key, func(t *testing.T) {
+			assert.Equal(t, tt.expected, getEnv(tt.key))
 		})
 	}
 }
