@@ -7,14 +7,15 @@ import (
 	_ "github.com/lib/pq"
 )
 
+var sqlOpen = sql.Open
+
 func NewSQLDatabase(connStr string) (*sql.DB, error) {
-	db, err := sql.Open("postgres", connStr)
+	db, err := sqlOpen("postgres", connStr)
 	if err != nil {
 		return nil, err
 	}
 
 	rows, err := db.Query("SELECT version()")
-
 	if err != nil {
 		db.Close()
 		return nil, err
@@ -25,6 +26,7 @@ func NewSQLDatabase(connStr string) (*sql.DB, error) {
 	for rows.Next() {
 		err := rows.Scan(&version)
 		if err != nil {
+			db.Close()
 			return nil, err
 		}
 	}
