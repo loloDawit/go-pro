@@ -82,6 +82,7 @@ func TestJWTMiddleware(t *testing.T) {
 	tests := []struct {
 		name              string
 		authHeader        string
+		bypassUserID      bool
 		expectedStatus    int
 		expectedResponse  string
 		expectUserIDInCtx bool
@@ -89,6 +90,7 @@ func TestJWTMiddleware(t *testing.T) {
 		{
 			name:              "Missing Authorization header",
 			authHeader:        "",
+			bypassUserID:      false,
 			expectedStatus:    http.StatusUnauthorized,
 			expectedResponse:  `{"error":"Authorization header is missing"}`,
 			expectUserIDInCtx: false,
@@ -96,6 +98,7 @@ func TestJWTMiddleware(t *testing.T) {
 		{
 			name:              "Missing token",
 			authHeader:        "Bearer ",
+			bypassUserID:      false,
 			expectedStatus:    http.StatusUnauthorized,
 			expectedResponse:  `{"error":"Token is missing"}`,
 			expectUserIDInCtx: false,
@@ -103,6 +106,7 @@ func TestJWTMiddleware(t *testing.T) {
 		{
 			name:              "Invalid token",
 			authHeader:        "Bearer invalid_token",
+			bypassUserID:      false,
 			expectedStatus:    http.StatusUnauthorized,
 			expectedResponse:  `{"error":"Invalid token"}`,
 			expectUserIDInCtx: false,
@@ -113,9 +117,21 @@ func TestJWTMiddleware(t *testing.T) {
 				token, _ := generateToken(secret, "12345")
 				return "Bearer " + token
 			}(),
+			bypassUserID:      false,
 			expectedStatus:    http.StatusOK,
 			expectedResponse:  "",
 			expectUserIDInCtx: true,
+		},
+		{
+			name: "Bypass User ID",
+			authHeader: func() string {
+				token, _ := generateToken(secret, "12345")
+				return "Bearer " + token
+			}(),
+			bypassUserID:      true,
+			expectedStatus:    http.StatusOK,
+			expectedResponse:  "",
+			expectUserIDInCtx: false,
 		},
 	}
 
@@ -135,6 +151,9 @@ func TestJWTMiddleware(t *testing.T) {
 			assert.NoError(t, err)
 			if tt.authHeader != "" {
 				req.Header.Set("Authorization", tt.authHeader)
+			}
+			if tt.bypassUserID {
+				req.Header.Set("X-Bypass-UserID", "true")
 			}
 
 			rr := httptest.NewRecorder()

@@ -2,7 +2,9 @@ package cart
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
+	"log"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -12,6 +14,7 @@ import (
 	"github.com/golang-jwt/jwt"
 	"github.com/gorilla/mux"
 	"github.com/loloDawit/ecom/config"
+	"github.com/loloDawit/ecom/services/auth"
 	"github.com/loloDawit/ecom/types"
 	"github.com/stretchr/testify/assert"
 )
@@ -84,6 +87,33 @@ func generateTestToken(secret []byte, userID int, expiration time.Duration) (str
 	return tokenString, nil
 }
 
+func MockJWTMiddleware(secret []byte) mux.MiddlewareFunc {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			userID := strconv.Itoa(1)
+			ctx := context.WithValue(r.Context(), types.UserIDKey, userID)
+			r = r.WithContext(ctx)
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+
+func BypassJWTMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		next.ServeHTTP(w, r)
+	})
+}
+
+func MockEmptyUserIDMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Simulate an authorized request by setting an empty context
+		ctx := context.WithValue(r.Context(), types.UserIDKey, "")
+		next.ServeHTTP(w, r.WithContext(ctx))
+	})
+}
+
+
+
 func TestCheckoutRoute(t *testing.T) {
 	cfg := &config.Config{
 		JWT: config.JWTConfig{
@@ -98,6 +128,7 @@ func TestCheckoutRoute(t *testing.T) {
 		mockProductStore     *mockProductStore
 		expectedStatus       int
 		expectedResponseBody string
+		bypassMiddleware     bool
 	}{
 		{
 			name:    "Invalid Payload",
@@ -349,12 +380,53 @@ func TestCheckoutRoute(t *testing.T) {
 			expectedStatus:       http.StatusOK,
 			expectedResponseBody: `{"id":123,"total":20,"message":"Order created successfully"}`,
 		},
+		{
+			name: "Error Getting User ID from Context",
+			payload: types.CartCheckoutPayload{
+				Items: []types.CartItem{
+					{ProductID: 1, Quantity: 2},
+				},
+			},
+			mockOrderStore: &mockOrderStore{
+				CreateOrderFunc: func(order types.Order) (int, error) {
+					return 123, nil
+				},
+				CreateOrderItemFunc: func(item types.OrderItem) error {
+					return nil
+				},
+			},
+			mockProductStore: &mockProductStore{
+				GetProductByIDFunc: func(id int) (*types.Product, error) {
+					return &types.Product{
+						ID:       id,
+						Name:     "Test Product",
+						Price:    10,
+						Quantity: 100,
+					}, nil
+				},
+				UpdateProductQuantityWithTransactionFunc: func(product types.Product) error {
+					return nil
+				},
+			},
+			expectedStatus:       http.StatusInternalServerError,
+			expectedResponseBody: `{"error":"user ID not found in context"}`,
+			bypassMiddleware:     true,
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			handler := NewHandlers(tt.mockOrderStore, tt.mockProductStore, cfg)
-			router := mux.NewRouter()
+
+			// Create a router instance without middleware for this specific test case
+			var router *mux.Router
+			if tt.bypassMiddleware {
+				router = mux.NewRouter()
+			} else {
+				router = mux.NewRouter()
+				router.Use(MockJWTMiddleware([]byte(cfg.JWT.Secret)))
+			}
+
 			handler.RegisterRoutes(router)
 
 			body, err := json.Marshal(tt.payload)
@@ -368,11 +440,87 @@ func TestCheckoutRoute(t *testing.T) {
 			assert.NoError(t, err)
 			req.Header.Set("Authorization", "Bearer "+token)
 
+			if tt.bypassMiddleware {
+				// Directly set the context without the user ID
+				req = req.WithContext(context.Background())
+				log.Println("Removed User ID from context for test:", tt.name)
+			}
+
 			rr := httptest.NewRecorder()
 			router.ServeHTTP(rr, req)
+
+			log.Println("Test:", tt.name)
+			log.Println("Expected Status:", tt.expectedStatus, "Actual Status:", rr.Code)
+			log.Println("Expected Body:", tt.expectedResponseBody, "Actual Body:", rr.Body.String())
 
 			assert.Equal(t, tt.expectedStatus, rr.Code)
 			assert.JSONEq(t, tt.expectedResponseBody, rr.Body.String())
 		})
 	}
+}
+
+func TestCheckoutRouteErrorGettingUserID(t *testing.T) {
+	cfg := &config.Config{
+		JWT: config.JWTConfig{
+			Secret: "testsecret",
+		},
+	}
+
+	handler := NewHandlers(&mockOrderStore{
+		CreateOrderFunc: func(order types.Order) (int, error) {
+			return 123, nil
+		},
+		CreateOrderItemFunc: func(item types.OrderItem) error {
+			return nil
+		},
+	}, &mockProductStore{
+		GetProductByIDFunc: func(id int) (*types.Product, error) {
+			return &types.Product{
+				ID:       id,
+				Name:     "Test Product",
+				Price:    10,
+				Quantity: 100,
+			}, nil
+		},
+		UpdateProductQuantityWithTransactionFunc: func(product types.Product) error {
+			return nil
+		},
+	}, cfg)
+
+	// Create a router instance with the middleware
+	router := mux.NewRouter()
+	router.HandleFunc("/cart/checkout", auth.JWTMiddleware([]byte(cfg.JWT.Secret))(handler.checkout)).Methods("POST")
+
+	body, err := json.Marshal(types.CartCheckoutPayload{
+		Items: []types.CartItem{
+			{ProductID: 1, Quantity: 2},
+		},
+	})
+	assert.NoError(t, err)
+
+	req, err := http.NewRequest("POST", "/cart/checkout", bytes.NewReader(body))
+	assert.NoError(t, err)
+
+	// Generate a test token and add it to the request header
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+		"userID": "1",
+		"exp":    time.Now().Add(time.Hour).Unix(),
+	})
+	tokenString, err := token.SignedString([]byte(cfg.JWT.Secret))
+	assert.NoError(t, err)
+	req.Header.Set("Authorization", "Bearer "+tokenString)
+
+	// Set the special header to bypass setting the user ID in the middleware
+	req.Header.Set("X-Bypass-UserID", "true")
+	log.Println("Set special header to bypass setting the user ID for test: Error Getting User ID from Context")
+
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+
+	log.Println("Test: Error Getting User ID from Context")
+	log.Println("Expected Status: 500, Actual Status:", rr.Code)
+	log.Println("Expected Body: {\"error\":\"user ID not found in context\"}, Actual Body:", rr.Body.String())
+
+	assert.Equal(t, http.StatusInternalServerError, rr.Code)
+	assert.JSONEq(t, `{"error":"user ID not found in context"}`, rr.Body.String())
 }

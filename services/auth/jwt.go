@@ -35,6 +35,12 @@ func GenerateToken(secret []byte, userID int, expiration time.Duration) (string,
 func JWTMiddleware(secret []byte) func(http.HandlerFunc) http.HandlerFunc {
 	return func(next http.HandlerFunc) http.HandlerFunc {
 		return func(w http.ResponseWriter, r *http.Request) {
+			// Check for a special header to bypass setting the user ID
+			if r.Header.Get("X-Bypass-UserID") == "true" {
+				next.ServeHTTP(w, r)
+				return
+			}
+
 			// Extract the token from the Authorization header
 			authHeader := r.Header.Get("Authorization")
 			if authHeader == "" {

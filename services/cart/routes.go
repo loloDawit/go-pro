@@ -122,7 +122,7 @@ func (h *Handler) checkout(w http.ResponseWriter, r *http.Request) {
 
 func getUserIDFromContext(ctx context.Context) (int, error) {
 	userIDStr, ok := ctx.Value(types.UserIDKey).(string)
-	if !ok {
+	if !ok || userIDStr == "" {
 		return 0, fmt.Errorf("user ID not found in context")
 	}
 	return strconv.Atoi(userIDStr)
