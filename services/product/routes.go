@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strconv"
 
 	"github.com/gorilla/mux"
 	"github.com/loloDawit/ecom/types"
@@ -35,8 +36,22 @@ func (h *Handler) getProducts(w http.ResponseWriter, r *http.Request) {
 	utils.WriteJSON(w, http.StatusOK, products)
 }
 
+
 func (h *Handler) getProduct(w http.ResponseWriter, r *http.Request) {
-	utils.WriteJSON(w, http.StatusOK, "test")
+	vars := mux.Vars(r)
+	id, err := strconv.Atoi(vars["id"])
+	if err != nil {
+		utils.WriteError(w, http.StatusBadRequest, "Invalid product ID")
+		return
+	}
+
+	product, err := h.store.GetProductByID(id)
+	if err != nil {
+		utils.WriteError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	utils.WriteJSON(w, http.StatusOK, product)
 }
 
 func (h *Handler) createProduct(w http.ResponseWriter, r *http.Request) {
